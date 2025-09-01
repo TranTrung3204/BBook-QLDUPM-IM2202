@@ -1,10 +1,53 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Home</title>
-</head>
-<body>
-QLDU IM22
-</body>
-</html>
+{% extends 'layout/base.html'%}
+{% block title %} Trang chủ {% endblock %}
+{% block content %}
+
+{% block banner %}
+{% include 'layout/banner.html'%}
+{% endblock %}
+<!-- Recent Product Start -->
+<div class="recent-product">
+    <div class="container">
+        <div class="section-header">
+            <h3>Sản phẩm của chúng tôi</h3>
+
+        </div>
+        <div class="row align-items-center product-slider product-slider-4">
+            {% for p in products %}
+            <div class="col-lg-3 ">
+                <div class="product-item">
+                    <div class="product-image">
+                        <a href="product-detail.html">
+                            <img src="{{ url_for('static', filename=(p.image if p.image else p.name)) }}"
+                                 style=" padding: 5px;">
+                        </a>
+
+                    </div>
+                    <div class="product-content">
+                        <div class="title"><a href="#">{{p.name}}</a></div>
+                        <div class="ratting">
+                            <i class="fa fa-star"></i>
+                            <i class="fa fa-star"></i>
+                            <i class="fa fa-star"></i>
+                            <i class="fa fa-star"></i>
+                            <i class="fa fa-star"></i>
+                        </div>
+                        <div class="mb-4">
+                            {{p.description}}
+                        </div>
+                        <div>
+                            <h4>
+                                {{p.price}}VND
+                            </h4>
+                        </div>
+                        <a href="#" onclick="event.preventDefault(); addToCart({{p.id}}, '{{p.name}}', {{p.price}})"
+                           class="btn btn-primary rounded-3 d-flex justify-content-center py-3">Đặt ngay</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor%}
+
+        </div>
+    </div>
+</div>
+{% endblock %}
