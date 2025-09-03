@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login-register.css') }}">
+    <script src="{{ url_for('static', filename='js/login-register.js') }}"></script>
+    <title>Đăng ký người dùng</title>
+</head>
+<body>
+    <div class="container">
+        <div class="auth-form">
+            <h2 class="form-title">Đăng ký tài khoản</h2>
+            {% if err_msg %}
+            <div class="alert alert-danger">
+                {{ err_msg }}
+            </div>
+            {% endif %}
+            <form action="{{ url_for('user_register') }}" method="POST" enctype="multipart/form-data" id="registerForm">
+                <div class="form-group">
+                    <label for="fullname">Họ và tên</label>
+                    <input type="text" id="fullname" name="fullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="username">Tên đăng nhập</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm">Xác nhận mật khẩu</label>
+                    <input type="password" id="confirm" name="confirm" required>
+                </div>
+                <div class="form-group">
+                    <label for="avatar">Ảnh đại diện</label>
+                    <input type="file" id="avatar" name="avatar" accept="image/*">
+                </div>
+                <button type="submit" class="btn">Đăng ký</button>
+                <div class="form-footer">
+                    Đã có tài khoản? <a href="{{ url_for('user_signin') }}">Đăng nhập</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
