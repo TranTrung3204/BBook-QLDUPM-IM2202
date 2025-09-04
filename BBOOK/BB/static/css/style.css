@@ -504,124 +504,91 @@ button.btn {
 /******** Product Item CSS ********/
 /**********************************/
 .product-item {
-    position: relative;
-    background-color: #f7f7f7;
-    padding-bottom: 15px;
-}
-
-.product-item .product-image {
-    position: relative;
+    background: #fff;
+    border-radius: 8px;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
 }
 
-.product-item .product-image a {
-    display: block;
-    background: #3F69AA;
-    margin-bottom: 15px;
-    transition: .3s;
+.product-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-
-.product-item:hover .product-image a {
-    background: rgba(63, 105, 170, .5);
+.product-item .product-image {
+    width: 100%;
+    height: 250px; /* hoặc 200px nếu muốn nhỏ gọn */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border-bottom: 1px solid #f2f2f2;
 }
 
 .product-item .product-image img {
-    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
 }
-
-.product-item:hover .product-image img {
-    filter: blur(5px);
-    -webkit-filter: blur(5px);
-}
-
-.product-item .product-image .product-action {
-    display: block;
-    position: absolute;
-    width: 100%;
-    height: 40px;
-    left: 0;
-    top: 50%;
-    text-align: center;
-    transition: .5s;
-    opacity: 0;
-}
-
-.product-item:hover .product-image .product-action {
-    top: calc(50% - 25px);
-    opacity: 1;
-}
-
-.product-item .product-image .product-action a {
-    display: inline-block;
-    width: 40px;
-    height: 40px;
-    padding: 6px 0;
-    margin-right: 5px;
-    text-align: center;
-    color: #ffffff;
-    font-size: 18px;
-    background: #3F69AA;
-}
-
-.product-item .product-image .product-action a:last-child {
-    margin-right: 0;
-}
-
-.product-item .product-image .product-action a:hover {
-    color: #3F69AA;
-    background: #ffffff;
-}
-
 .product-item .product-content {
-    position: relative;
-    width: 100%;
-    text-align: center;
-    background: #f7f7f7;
+    padding: 8px 10px;
+    text-align: left; /* giống Shopee */
+    flex: 1;
 }
 
-.product-item .product-content .title,
-.product-item .product-content .ratting,
-.product-item .product-content .price {
-    position: relative;
-    width: 100%;
-}
-
-.product-item .product-content .title {
-    margin-bottom: 5px;
-}
-
-.product-item .product-content .title a {
-    color: #3F69AA;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.product-item .product-content .ratting i {
+.product-item .product-title {
     font-size: 14px;
-    color: #3F69AA;
+    font-weight: 500;
+    color: #333;
+    line-height: 1.4;
+    margin-bottom: 6px;
+    height: 38px; /* fix chiều cao để card đều */
+    overflow: hidden;
+}
+.product-item .product-price {
+    font-size: 16px;
+    font-weight: bold;
+    color: #ee4d2d;
+    margin-bottom: 4px;
 }
 
-.product-item .product-content .price {
-    font-size: 30px;
-    color: #3F69AA;
-    font-weight: 700;
+.product-item .product-stock {
+    font-size: 12px;
+    color: #888;
+}
+.product-item .badge-discount {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: #ee4d2d;
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+/* Nút thêm giỏ hàng */
+.product-action .btn-add-cart {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: #3F69AA;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    text-decoration: none;
 }
 
-.product-item .product-content .price span {
-    margin-left: 12px;
-    text-decoration: line-through;
-    font-weight: 700;
-    color: #666666;
+.product-action .btn-add-cart i {
+    margin-right: 6px;
 }
 
-.product-slider.slick-slider:hover .slick-prev {
-    left: 30px;
-    opacity: 1;
-}
-
-.product-slider.slick-slider:hover .slick-next {
-    right: 30px;
-    opacity: 1;
+.product-action .btn-add-cart:hover {
+    background: #2c4f82;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 

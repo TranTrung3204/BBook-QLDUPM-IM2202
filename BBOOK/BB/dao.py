@@ -12,11 +12,10 @@ def load_book_categories():
     return categories
 
 
-
 def load_books(kw: object = None) -> object:
     products = Book.query
     if kw:
-        products = products.filter(Book.name.contains(kw))
+        products = products.filter(Book.title.contains(kw))  # Sửa Book.name thành Book.title
     return products.all()
 
 
@@ -30,22 +29,18 @@ def add_user(fullName, username, password, **kwargs):
     db.session.add(user)
     db.session.commit()
 
+
 def search_books(kw):
     if not kw:
         return []
     # Bỏ khoảng trắng thừa, chuyển về chữ thường, tìm kiếm
     return Book.query.filter(
-        Book.name.ilike(f"%{kw}%")
+        Book.title.ilike(f"%{kw}%")  # Sửa Book.name thành Book.title
     ).all()
+
 
 def load_books_by_category(category_id):
     return Book.query.filter(Book.category_id == category_id).all()
-
-def load_book_categories():
-    categories = BookCategory.query.order_by('id').all()
-    for category in categories:
-        category.product_count = Book.query.filter(Book.category_id == category.id).count()
-    return categories
 
 
 def check_login(username, password, role=None):
@@ -67,3 +62,14 @@ def check_login(username, password, role=None):
 
 def get_user_by_id(user_id):
     return User.query.get(user_id)
+
+def cart_stats(cart):
+    total_quantity = 0
+
+    if cart:
+        for c in cart.values():
+            total_quantity += c['quantity']
+
+    return {
+        'total_quantity': total_quantity
+    }

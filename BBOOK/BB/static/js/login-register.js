@@ -13,6 +13,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    const googleBtn = document.querySelector('.btn-google');
+    if (googleBtn) {
+        googleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = "/login/google";
+        });
+    }
 
     // File input validation
     const avatarInput = document.getElementById('avatar');
@@ -35,4 +42,5 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
 });

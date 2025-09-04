@@ -22,20 +22,23 @@
                                style="display: flex; flex-direction: column; align-items: center; text-align: center;">
                                 {% if current_user.avatar %}
                                 <img class="rounded-circle" src="{{ current_user.avatar }}" width="70"
-                                     alt="{{ current_user.name }}" style="margin-bottom: 5px;"/>
+                                     alt="{{ current_user.fullName }}" style="margin-bottom: 5px;"/>
                                 {% else %}
                                 <img class="rounded-circle"
                                      src="{{ url_for('static',filename='client/img/attachment-img.jpg') }}" width="70"
-                                     alt="{{ current_user.name }}" style="margin-bottom: 5px;"/>
+                                     alt="{{ current_user.fullName }}" style="margin-bottom: 5px;"/>
                                 {% endif %}
-                                {{ current_user.name }}
+                                {{ current_user.fullName }}
                             </a>
                             <a href="{{ url_for('user_signout') }}" class="dropdown-item">Logout</a>
                             {%else%}
-                            <a href="/user-login" class="dropdown-item">Đăng nhập</a>
-                            <a href="/register" class="dropdown-item">Đăng ký</a>
+                            <a href="{{ url_for('user_signin') }}" class="dropdown-item">Login</a>
+                            <a href="{{ url_for('user_register') }}" class="dropdown-item">Register</a>
                             {% endif %}
-
+                        </div>
+                        <div class="cart">
+                            <a class="fa fa-cart-plus" href="{{url_for('cart')}}"></a>
+                            <span id="cartCounter">{{ cart_stats.total_quantity }}</span>
                         </div>
                     </div>
                 </div>
@@ -43,3 +46,43 @@
         </div>
     </div>
 </div>
+
+
+<!-- Header Start -->
+<div class="header">
+    <div class="container">
+        <nav class="navbar navbar-expand-md bg-dark navbar-dark">
+            <a href="#" class="navbar-brand">MENU</a>
+            <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#navbarCollapse">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse justify-content-between" id="navbarCollapse">
+                <div class="navbar-nav m-auto">
+                    <a href="/" class="nav-item nav-link active">Trang Chủ</a>
+                    <a href="{{ url_for('product_list') }}" class="nav-item nav-link">Sách</a>
+<!--                    <div class="nav-item dropdown">-->
+<!--                        <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">-->
+<!--                            <i class="fas fa-book-open me-2"></i>Loại Sách</a>-->
+<!--                        <div class="dropdown-menu category-menu">-->
+<!--                            <div class="category-header">-->
+<!--                                <h6 class="text-center">Danh Mục Sách</h6>-->
+<!--                            </div>-->
+<!--                            <div class="category-list">-->
+<!--                                {% for c in categories %}-->
+<!--                                <a href="{{ url_for('filter_by_category', category_id=c.id) }}"-->
+<!--                                   class="dropdown-item category-item">-->
+<!--                                    <span class="category-name">{{ c.name }}</span>-->
+<!--                                    <span class="category-count">({{ c.product_count }})</span>-->
+<!--                                </a>-->
+<!--                                {% endfor %}-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+                    <a href="{{ url_for('contact') }}" class="nav-item nav-link">Liên hệ</a>
+                </div>
+            </div>
+        </nav>
+    </div>
+</div>
+<!-- Header End -->

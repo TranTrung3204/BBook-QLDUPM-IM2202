@@ -1,0 +1,127 @@
+/**********************************/
+/******** Index Page CSS **********/
+/**********************************/
+
+/* Khung sản phẩm */
+.product-item {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    background: #fff;
+    margin: 12px; /* khoảng cách giữa các sản phẩm */
+}
+
+.product-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+/* Ảnh sản phẩm */
+.product-item .product-image {
+    width: 100%;
+    height: 240px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f9f9f9;
+    overflow: hidden;
+    border-bottom: 1px solid #eee;
+}
+
+.product-item .product-image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.product-item:hover .product-image img {
+    transform: scale(1.05);
+}
+
+/* Nội dung sản phẩm */
+.product-item .product-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    padding: 12px;
+    background: #fff;
+}
+
+.product-item .book-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.product-item .book-title a {
+    color: #3F69AA;
+    text-decoration: none;
+}
+
+.product-item .book-title a:hover {
+    color: #2c4f82;
+}
+
+/* Thể loại */
+.product-item .book-category {
+    font-size: 14px;
+    color: #777;
+    margin-bottom: 6px;
+}
+
+/* Rating */
+.product-item .book-rating i {
+    font-size: 14px;
+    color: #ffc107;
+}
+
+/* Số lượng */
+.product-item .book-stock {
+    font-size: 14px;
+    color: #666;
+    margin: 8px 0;
+}
+
+/* Footer - nút giỏ hàng */
+.product-item .product-footer {
+    margin-top: auto;
+    padding: 10px 12px;
+    background: #fdfdfd;
+    border-top: 1px solid #eee;
+}
+
+.product-item .btn-add-cart {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: #3F69AA;
+    border-radius: 6px;
+    text-align: center;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.product-item .btn-add-cart i {
+    margin-right: 6px;
+}
+
+.product-item .btn-add-cart:hover {
+    background: #2c4f82;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.product-item .btn-add-cart.disabled {
+    background: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+}

@@ -1,10 +1,10 @@
 {% extends 'layout/base.html' %}
-{% block title %} Giỏ hàng {% endblock %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.css">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% block title %} Giỏ mượn sách {% endblock %}
+
 {% block css %}
 <link href="{{ url_for('static', filename='css/cart.css') }}" rel="stylesheet">
 {% endblock %}
+
 {% block content %}
 <!-- Cart Start -->
 <div class="cart-page">
@@ -14,21 +14,21 @@
                 <div class="table-responsive">
                     {% if session.get('cart') %}
                     <table class="table table-bordered">
-                        <!-- Update the table header to include checkbox column -->
                         <thead class="thead-dark">
                         <tr>
-                            <th>Mã sản phẩm</th>
-                            <th>Tên sản phẩm</th>
+                            <th>Mã sách</th>
+                            <th>Tên sách</th>
+                            <th>Tác giả</th>
                             <th>Số lượng</th>
-                            <th>Tổng tiền</th>
                             <th>Xóa</th>
                         </tr>
                         </thead>
                         <tbody class="align-middle">
                         {% for c in session.get('cart', {}).values() %}
-                        <tr id="product-{{ c.get('id', '') }}">
-                            <td><a href="#">{{ c.get('id', '') }}</a></td>
-                            <td><a href="#">{{ c.get('name', '') }}</a></td>
+                        <tr id="book-{{ c.get('id', '') }}">
+                            <td>{{ c.get('id', '') }}</td>
+                            <td>{{ c.get('title', '') }}</td>
+                            <td>{{ c.get('author', '') }}</td>
                             <td>
                                 <div class="qty">
                                     <button class="btn-minus" onclick="updateQuantity('{{ c.get('id', '') }}', -1)">
@@ -41,11 +41,8 @@
                                     </button>
                                 </div>
                             </td>
-                            <td id="total-{{ c.get('id', '') }}">
-                                {{ "{:,.1f}".format((c.get('price', 0) or 0) * (c.get('quantity', 0) or 1)) }} VND
-                            </td>
                             <td>
-                                <button onclick="deleteFromCart('{{ c.get('id', '') }}')">
+                                <button onclick="deleteFromCart('{{ c.get('id', '') }}')" class="btn btn-danger btn-sm">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             </td>
@@ -54,116 +51,58 @@
                         </tbody>
                     </table>
                     {% else %}
-                    <h4>Không có sản phẩm nào trong giỏ !</h4>
+                    <h4>Không có sách nào trong giỏ mượn!</h4>
                     {% endif %}
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="coupon">
-                    <input type="text" placeholder="Coupon Code">
-                    <button>Apply Code</button>
-                </div>
-            </div>
-            <div class="col-md-6">
+
+        {% if session.get('cart') %}
+        <div class="row mt-4">
+            <div class="col-md-6 offset-md-6">
                 <div class="cart-summary">
                     <div class="cart-content">
-                        <h3>Tổng tiền trong giỏ hàng </h3>
-                        <p>Tổng sản phẩm<span>{{ stats.total_quantity }}</span></p>
-                        <p>Phí vận chuyển<span>0</span></p>
-                        <h4>Thành tiền<span>{{ "{:,.1f}".format(stats.total_amount) }} VND</span></h4>
+                        <h3>Thông tin mượn sách</h3>
+                        <p>Tổng số sách: <span>{{ stats.total_quantity }}</span></p>
                     </div>
                     <div class="cart-btn">
-                        <button>Phương thức nhận hàng</button>
-                        <button onclick="pay()">Đặt hàng</button>
+                        <button class="btn btn-success" onclick="confirmBorrow()">Xác nhận mượn</button>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div class="modal" id="deliveryMethodModal">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 class="modal-title">Chọn phương thức nhận hàng</h4>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="delivery-options">
-                    <button class="btn btn-primary delivery-option" data-method="home">Giao hàng tận nhà</button>
-                    <button class="btn btn-primary delivery-option" data-method="store">Nhận tại cửa hàng</button>
-                </div>
-
-                <!-- Form giao hàng tận nhà -->
-                <form id="homeDeliveryForm" class="delivery-form" style="display: none;">
-                    <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Tỉnh/thành phố" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Quận/huyện" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Xã/phường" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" class="form-control" placeholder="Địa chỉ cụ thể" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="tel" class="form-control" placeholder="Số điện thoại" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" class="form-control" placeholder="Email">
-                    </div>
-                    <div class="form-group">
-                        <label>Phương thức thanh toán:</label>
-                        <div class="payment-options">
-                            <div class="custom-control custom-radio">
-                                <input type="radio" class="custom-control-input" id="homeOnline" name="homePayment"
-                                       value="online">
-                                <label class="custom-control-label" for="homeOnline">Thanh toán trực tuyến</label>
-                            </div>
-                            <div class="custom-control custom-radio">
-                                <input type="radio" class="custom-control-input" id="homeCOD" name="homePayment"
-                                       value="cod">
-                                <label class="custom-control-label" for="homeCOD">Thanh toán khi nhận hàng</label>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <!-- Form nhận tại cửa hàng -->
-                <form id="storePickupForm" class="delivery-form" style="display: none;">
-                    <div class="form-group">
-                        <input type="tel" class="form-control" placeholder="Số điện thoại" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" class="form-control" placeholder="Email">
-                    </div>
-                    <div class="form-group">
-                        <label>Phương thức thanh toán:</label>
-                        <div class="payment-options">
-                            <div class="custom-control custom-radio">
-                                <input type="radio" class="custom-control-input" id="storeOnline" name="storePayment"
-                                       value="online">
-                                <label class="custom-control-label" for="storeOnline">Thanh toán trực tuyến</label>
-                            </div>
-                            <div class="custom-control custom-radio">
-                                <input type="radio" class="custom-control-input" id="storeCOD" name="storePayment"
-                                       value="cod">
-                                <label class="custom-control-label" for="storeCOD">Thanh toán khi nhận hàng</label>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="confirmDelivery">Xác nhận</button>
-            </div>
-        </div>
+        {% endif %}
     </div>
 </div>
 <!-- Cart End -->
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cart.js') }}"></script>
+<script>
+    function confirmBorrow() {
+        Swal.fire({
+            title: 'Xác nhận mượn sách',
+            text: "Bạn có chắc chắn muốn mượn số sách này không?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Xác nhận',
+            cancelButtonText: 'Hủy'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/borrow/confirm', {
+                    method: 'POST'
+                }).then(res => res.json())
+                  .then(data => {
+                    if (data.code === 200) {
+                        Swal.fire('Thành công!', data.message, 'success')
+                            .then(() => window.location.href = '/');
+                    } else {
+                        Swal.fire('Lỗi!', data.message, 'error');
+                    }
+                });
+            }
+        });
+    }
+</script>
 {% endblock %}

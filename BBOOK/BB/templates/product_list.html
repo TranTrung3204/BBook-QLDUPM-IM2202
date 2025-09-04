@@ -1,0 +1,204 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Danh sách sách{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/product-list.css') }}">
+
+<!-- Breadcrumb Start -->
+<div class="breadcrumb-wrap">
+    <div class="container">
+        <ul class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Trang chủ</a></li>
+            <li class="breadcrumb-item active">Danh sách sách</li>
+        </ul>
+    </div>
+</div>
+<!-- Breadcrumb End -->
+
+<div class="product-view">
+    <div class="container">
+        <div class="row">
+
+
+            <div class="col-lg-9">
+
+                <div class="product-search mb-3">
+                    <form action="{{ url_for('search') }}" method="get" class="row g-2 align-items-center">
+
+                        <div class="input-group mb-3">
+                            <input type="text" name="kw" placeholder="Tìm kiếm sách..." class="form-control"
+                                   value="{{ request.args.get('kw', '') }}">
+                            <button type="submit"
+                                    class="btn btn-primary d-flex align-items-center justify-content-center">
+                                <i class="fa fa-search"></i>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="author_id" class="form-control">
+                                <option value="">-- Tác giả --</option>
+                                {% for a in authors %}
+                                <option value="{{ a.id }}" {% if author_id== a.id %} selected {% endif %}>
+                                    {{ a.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <select name="category_id" class="form-control">
+                                <option value="">-- Thể loại --</option>
+                                {% for c in categories %}
+                                <option value="{{ c.id }}" {% if category_id== c.id %}selected{% endif %}>
+                                    {{ c.categoryName }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <select name="publisher_id" class="form-control">
+                                <option value="">-- Nhà xuất bản --</option>
+                                {% for p in publishers %}
+                                <option value="{{ p.id }}" {% if publisher_id== p.id %}selected{% endif %}>
+                                    {{ p.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <input type="number" name="year" placeholder="Năm xuất bản" class="form-control"
+                                   value="{{ year if year else '' }}">
+                        </div>
+
+                    </form>
+                </div>
+
+                <div class="row">
+                    {% if books %}
+                    {% for book in books %}
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="product-item">
+                            <a href="{{ url_for('book_detail', book_id=book.id) }}">
+                                <div class="product-image">
+                                    <img src="{{ url_for('static', filename=(book.image if book.image else 'img/default_book.png')) }}"
+                                         alt="{{ book.title }}">
+                                </div>
+                            </a>
+                            <div class="product-content">
+                                <h5 class="book-title">
+                                    <a href="{{ url_for('book_detail', book_id=book.id) }}"
+                                       class="text-decoration-none text-dark">
+                                        {{ book.title }}
+                                    </a>
+                                </h5>
+                                <p class="book-author">Tác giả: {{ book.author.name if book.author else 'Chưa có' }}</p>
+                                <p class="book-category">Thể loại: {{ book.category.categoryName if book.category else
+                                    'Chưa có' }}</p>
+                                <p class="book-publisher">NXB: {{ book.publisher.name if book.publisher else 'Chưa có'
+                                    }}</p>
+                                <p class="book-year">Năm: {{ book.publicationYear }}</p>
+                                <p class="book-stock">Còn lại: {{ book.availableCopies }} quyển</p>
+                                {% if book.availableCopies > 0 %}
+                                <a href="#"
+                                   class="btn btn-primary add-to-cart w-100 mt-2"
+                                   data-id="{{ book.id }}"
+                                   data-title="{{ book.title }}"
+                                   data-author="{{ book.author.name if book.author else 'Chưa rõ' }}"
+                                   data-stock="{{ book.availableCopies }}">
+                                    <i class="fa fa-cart-plus"></i> Thêm vào giỏ
+                                </a>
+                                {% else %}
+                                <button class="btn btn-secondary w-100 mt-2" disabled>Hết sách</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% endfor %}
+                    {% else %}
+                    <div class="col-12 text-center">
+                        <p>Không có sách nào.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Pagination Start -->
+                {% if total_pages > 1 %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+
+                        <!-- Nút Previous -->
+                        <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
+                            <a class="page-link"
+                               href="{{ url_for('product_list', page=current_page-1, kw=request.args.get('kw',''), category_id=request.args.get('category_id','')) }}"
+                               aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+
+                        <!-- Các số trang -->
+                        {% for p in range(1, total_pages+1) %}
+                        <li class="page-item {% if p == current_page %}active{% endif %}">
+                            <a class="page-link"
+                               href="{{ url_for('product_list', page=p, kw=request.args.get('kw',''), category_id=request.args.get('category_id','')) }}">
+                                {{ p }}
+                            </a>
+                        </li>
+                        {% endfor %}
+
+                        <!-- Nút Next -->
+                        <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
+                            <a class="page-link"
+                               href="{{ url_for('product_list', page=current_page+1, kw=request.args.get('kw',''), category_id=request.args.get('category_id','')) }}"
+                               aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+
+                    </ul>
+                </nav>
+                {% endif %}
+                <!-- Pagination End -->
+
+
+            </div>
+            <!-- Sidebar: Categories -->
+            <div class="col-lg-3">
+                <div class="sidebar-widget category">
+                    <h2 class="title">Danh mục</h2>
+                    <ul>
+                        {% for category in categories %}
+                        <li>
+                            <a href="{{ url_for('filter_by_category', category_id=category.id) }}">
+                                {{ category.categoryName }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cart.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const addToCartButtons = document.querySelectorAll('.add-to-cart');
+    addToCartButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const bookId = this.dataset.id;
+            const bookTitle = this.dataset.title;
+            const bookAuthor = this.dataset.author;
+            const bookStock = this.dataset.stock;
+            addToCart(bookId, bookTitle, bookStock, bookAuthor);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -5,49 +5,113 @@
 {% block banner %}
 {% include 'layout/banner.html'%}
 {% endblock %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index-user.css') }}">
 <!-- Recent Product Start -->
 <div class="recent-product">
     <div class="container">
         <div class="section-header">
-            <h3>Sản phẩm của chúng tôi</h3>
-
+            <h3>Sản phẩm nổi bật</h3>
         </div>
-        <div class="row align-items-center product-slider product-slider-4">
-            {% for p in products %}
-            <div class="col-lg-3 ">
-                <div class="product-item">
-                    <div class="product-image">
-                        <a href="product-detail.html">
-                            <img src="{{ url_for('static', filename=(p.image if p.image else p.name)) }}"
-                                 style=" padding: 5px;">
+
+        <div class="row">
+            <div class="col-12">
+                <div class="product-slider product-slider-4">
+                    {% for book in books %}
+                    <div class="product-item">
+                        <a href="{{ url_for('book.details_view', book_id=book.id) }}">
+                            <div class="product-image">
+                                <img src="{{ url_for('static', filename=(book.image if book.image else 'img/default_book.png')) }}"
+                                     alt="{{ book.title }}">
+                            </div>
                         </a>
 
+                        <div class="product-content">
+                            <!-- Tên sách -->
+                            <h5 class="book-title">
+                                <a href="{{ url_for('book.details_view', book_id=book.id) }}"
+                                   class="text-decoration-none text-dark">
+                                    {{ book.title }}
+                                </a>
+                            </h5>
+
+                            <!-- Thể loại -->
+                            <p class="book-category">
+                                Thể loại: {{ book.category.categoryName if book.category else 'Chưa có' }}
+                            </p>
+
+                            <!-- Đánh giá sao (demo 4/5 sao) -->
+                            <div class="book-rating text-warning mb-2">
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star-o"></i>
+                            </div>
+
+                            <!-- Số lượng -->
+                            <p class="book-stock">Còn lại: {{ book.availableCopies }} quyển</p>
+                        </div>
+
+                        <!-- Footer với nút thêm giỏ -->
+                        <div class="product-footer mt-auto">
+                            {% if book.availableCopies > 0 %}
+                            <a href="#" class="btn btn-primary add-to-cart w-100"
+                               data-id="{{ book.id }}"
+                               data-title="{{ book.title }}"
+                               data-author="{{ book.author.name if book.author else 'Chưa rõ' }}"
+                               data-stock="{{ book.availableCopies }}">
+                                <i class="fa fa-cart-plus"></i> Thêm vào giỏ
+                            </a>
+                            {% else %}
+                            <button class="btn btn-secondary w-100" disabled>
+                                <i class="fa fa-ban"></i> Hết sách
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="product-content">
-                        <div class="title"><a href="#">{{p.name}}</a></div>
-                        <div class="ratting">
-                            <i class="fa fa-star"></i>
-                            <i class="fa fa-star"></i>
-                            <i class="fa fa-star"></i>
-                            <i class="fa fa-star"></i>
-                            <i class="fa fa-star"></i>
-                        </div>
-                        <div class="mb-4">
-                            {{p.description}}
-                        </div>
-                        <div>
-                            <h4>
-                                {{p.price}}VND
-                            </h4>
-                        </div>
-                        <a href="#" onclick="event.preventDefault(); addToCart({{p.id}}, '{{p.name}}', {{p.price}})"
-                           class="btn btn-primary rounded-3 d-flex justify-content-center py-3">Đặt ngay</a>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor%}
-
         </div>
     </div>
 </div>
+
+<!-- Recent Product End -->
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cart.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addToCartButtons = document.querySelectorAll('.add-to-cart');
+        addToCartButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const bookId = this.dataset.id;
+                const bookTitle = this.dataset.title;
+                const bookAuthor = this.dataset.author;
+                const bookStock = this.dataset.stock;
+                addToCart(bookId, bookTitle, bookStock, bookAuthor);
+            });
+        });
+    });
+
+    $(document).ready(function(){
+        $('.product-slider-4').slick({
+            infinite: true,
+            slidesToShow: 4,
+            slidesToScroll: 1,
+            autoplay: true,
+            autoplaySpeed: 3000,
+            arrows: true,
+            dots: false,
+            responsive: [
+                { breakpoint: 992, settings: { slidesToShow: 3 } },
+                { breakpoint: 768, settings: { slidesToShow: 2 } },
+                { breakpoint: 576, settings: { slidesToShow: 1 } }
+            ]
+        });
+    });
+</script>
 {% endblock %}

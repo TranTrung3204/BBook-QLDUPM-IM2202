@@ -1,0 +1,102 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+
+<div class="container mt-4">
+    <h2>Phiếu Nhập Sách</h2>
+
+    <!-- Form nhập phiếu -->
+    <div class="card mb-4">
+        <div class="card-header">
+            Thêm phiếu nhập mới
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('importrecords.add_import') }}">
+                <div class="mb-3">
+                    <label for="book_id" class="form-label">Chọn sách</label>
+                    <select class="form-select" id="book_id" name="book_id" required>
+                        <option value="">-- Chọn sách --</option>
+                        {% for book in books %}
+                        <option value="{{ book.id }}">{{ book.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="quantity" class="form-label">Số lượng</label>
+                    <input type="number" class="form-control" id="quantity" name="quantity" min="1" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="librarian_id" class="form-label">Thủ thư nhập</label>
+                    <select class="form-select" id="librarian_id" name="librarian_id" required>
+                        <option value="">-- Chọn thủ thư --</option>
+                        {% for librarian in librarians %}
+                        <option value="{{ librarian.id }}">{{ librarian.user.fullName }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="library_id" class="form-label">Thư viện</label>
+                    <select class="form-select" id="library_id" name="library_id" required>
+                        <option value="">-- Chọn thư viện --</option>
+                        {% for lib in libraries %}
+                        <option value="{{ lib.id }}">{{ lib.address }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="import_date" class="form-label">Ngày nhập</label>
+                    <input type="date" class="form-control" id="import_date" name="import_date">
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Ghi chú</label>
+                    <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Thêm phiếu nhập</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bảng danh sách phiếu nhập -->
+    <div class="card">
+        <div class="card-header">
+            Danh sách phiếu nhập
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Sách</th>
+                        <th>Số lượng</th>
+                        <th>Thủ thư</th>
+                        <th>Thư viện</th>
+                        <th>Ngày nhập</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.id }}</td>
+                        <td>{{ record.bookTitle }}</td>
+                        <td>{{ record.quantity }}</td>
+                        <td>{{ record.librarian.user.fullName }}</td>
+                        <td>{{ record.library.address }}</td>
+                        <td>{{ record.importDate.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ record.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -116,3 +116,41 @@
     border: 1px solid #f5c6cb;
     color: #721c24;
 }
+
+.social-login {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.social-login p {
+    color: #555;
+    margin-bottom: 0.8rem;
+    font-size: 0.95rem;
+}
+
+.btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    color: #444;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 0.7rem;
+    font-size: 1rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-google img {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.6rem;
+}
+
+.btn-google:hover {
+    background: #f8f8f8;
+    border-color: #ccc;
+}

@@ -67,7 +67,7 @@ class Library(BaseModel):
 
 class User(BaseModel, UserMixin):
     username = Column(String(100), unique=True, nullable=False)
-    password = Column(String(255), nullable=False)
+    password = Column(String(255), nullable=True)
     email = Column(String(100), unique=True, nullable=False)
     phone = Column(String(20))
     address = Column(String(255))
@@ -82,7 +82,7 @@ class User(BaseModel, UserMixin):
     librarian = relationship("Librarian", backref="user", uselist=False)
 
     def __str__(self):
-        return self.username
+        return self.fullName
 
 
 class Member(BaseModel):

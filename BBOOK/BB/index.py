@@ -1,10 +1,12 @@
 from math import ceil
-
 import cloudinary
 from flask import Flask, render_template, request, url_for, redirect, flash, session, jsonify
+from flask_dance.contrib.google import google
 from flask_login import login_user, logout_user, login_required, current_user, LoginManager
-from BBOOK.BB import app, dao, models
-from BBOOK.BB.models import UserRole, Book
+from sqlalchemy import or_
+
+from BBOOK.BB import app, dao, models, db
+from BBOOK.BB.models import UserRole, Book, User
 
 
 @app.route("/")
@@ -12,8 +14,8 @@ def index():
     if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
         return redirect(url_for('admin_login'))
     kw = request.args.get('kw')
-    prods = dao.load_books(kw)
-    return render_template('index.html', products=prods)
+    books = dao.load_books(kw)
+    return render_template('index.html', books=books)
 
 
 login_manager = LoginManager()
@@ -68,7 +70,6 @@ def user_signin():
         user = dao.check_login(username=username, password=password)
         if user:
             login_user(user=user)
-            # Kiểm tra vai trò người dùng và chuyển hướng phù hợp
             if user.role == UserRole.ADMIN:
                 return redirect(url_for('admin_login'))
             else:
@@ -76,6 +77,40 @@ def user_signin():
         else:
             err_msg = 'Username or password is incorrect !!!'
     return render_template('login.html', err_msg=err_msg)
+
+
+@app.route("/login/google")
+def login_google():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+
+    resp = google.get("/oauth2/v2/userinfo")
+    if not resp.ok:
+        return "Could not fetch your information from Google", 400
+
+    user_info = resp.json()
+    email = user_info["email"]
+    full_name = user_info.get("name", "")
+    picture = user_info.get("picture", "")
+
+    # Kiểm tra user trong DB
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        user = User(
+            fullName=full_name,
+            email=email,
+            username=email.split("@")[0],
+            password="",
+            avatar=picture,
+            role=UserRole.MEMBER
+        )
+        db.session.add(user)
+        db.session.commit()
+        user = User.query.filter_by(email=email).first()
+
+    # Đăng nhập với remember=True để duy trì session
+    login_user(user, remember=True)
+    return redirect(url_for("index"))
 
 
 @app.route('/admin-login', methods=['GET', 'POST'])
@@ -90,6 +125,7 @@ def admin_login():
         if user:
             login_user(user=user)
             return redirect('/admin')
+
         else:
             flash('Đăng nhập không hợp lệ. Vui lòng kiểm tra lại thông tin.', 'error')
 
@@ -105,6 +141,219 @@ def user_signout():
     logout_user()
     return redirect(url_for('user_signin'))
 
+@app.route('/product-list')
+def product_list():
+    page = request.args.get('page', 1, type=int)
+    per_page = 6
+    kw = request.args.get('kw', '').strip()
+    category_id = request.args.get('category_id', type=int)
+
+    query = Book.query.order_by(Book.title)
+
+    if kw:
+        query = query.filter(Book.title.ilike(f"%{kw}%"))
+
+    if category_id:
+        query = query.filter(Book.category_id == category_id)
+
+    total = query.count()
+    books = query.offset((page - 1) * per_page).limit(per_page).all()
+    total_pages = max(1, ceil(total / per_page))
+
+    categories = dao.load_book_categories()
+    for c in categories:
+        c.book_count = len(c.books)
+
+    return render_template(
+        'product_list.html',
+        books=books,
+        current_page=page,
+        total_pages=total_pages,
+        categories=categories
+    )
+
+@app.route('/search', methods=['GET'])
+def search():
+    kw = request.args.get('kw', '').strip()
+    category_id = request.args.get('category_id', None, type=int)
+    year = request.args.get('year', None, type=int)
+    author_id = request.args.get('author_id', None, type=int)
+    publisher_id = request.args.get('publisher_id', None, type=int)
+
+    # Query cơ bản
+    products = Book.query.join(Book.author, isouter=True).join(Book.publisher, isouter=True)
+
+    # Tìm kiếm theo từ khóa
+    if kw:
+        products = products.filter(
+            or_(
+                Book.title.ilike(f'%{kw}%'),
+                Author.name.ilike(f'%{kw}%'),
+                Publisher.name.ilike(f'%{kw}%')
+            )
+        )
+
+    # Lọc theo danh mục
+    if category_id:
+        products = products.filter(Book.category_id == category_id)
+
+    # Lọc theo năm
+    if year:
+        products = products.filter(Book.publicationYear == year)
+
+    # Lọc theo tác giả
+    if author_id:
+        products = products.filter(Book.author_id == author_id)
+
+    # Lọc theo nhà xuất bản
+    if publisher_id:
+        products = products.filter(Book.publisher_id == publisher_id)
+
+    products = products.all()
+
+    categories = dao.load_book_categories()
+    authors = Author.query.all()
+    publishers = Publisher.query.all()
+
+    return render_template(
+        'product_list.html',
+        books=products,
+        categories=categories,
+        authors=authors,
+        publishers=publishers,
+        kw=kw,
+        category_id=category_id,
+        year=year,
+        author_id=author_id,
+        publisher_id=publisher_id
+    )
+
+@app.route('/category/<int:category_id>')
+def filter_by_category(category_id):
+    page = request.args.get('page', 1, type=int)
+    per_page = 6
+
+    query = Book.query.filter(Book.category_id == category_id)
+
+    total_products = query.count()
+    total_pages = max(1, ceil(total_products / per_page))
+
+    products = query.offset((page - 1) * per_page).limit(per_page).all()
+
+    categories = dao.load_book_categories()
+
+    return render_template('product_list.html',
+                           books=products,
+                           categories=categories,
+                           category_id=category_id,
+                           current_page=page if total_products > per_page else 1,
+                           total_pages=total_pages if total_products > per_page else 1)
+
+@app.route('/cart')
+@login_required
+def cart():
+    cart = session.get('cart', {})
+    return render_template('cart.html', cart=cart, stats=dao.cart_stats(cart))
+
+
+@app.route('/api/add-cart', methods=['POST'])
+@login_required
+def add_to_cart():
+    data = request.json
+    book_id = str(data.get('id'))
+    book = Book.query.get(book_id)
+
+    if not book:
+        return jsonify({'code': 404, 'message': 'Sách không tồn tại!'})
+
+    cart = session.get('cart', {})
+    current_quantity = cart[book_id]['quantity'] if book_id in cart else 0
+
+    if current_quantity + 1 > book.availableCopies:
+        return jsonify({'code': 400, 'message': 'Số lượng sách không đủ để mượn!'})
+
+    if book_id in cart:
+        cart[book_id]['quantity'] += 1
+    else:
+        cart[book_id] = {
+            'id': book_id,
+            'title': book.title,
+            'author': book.author.name if book.author else 'Chưa rõ',
+            'quantity': 1
+        }
+
+    session['cart'] = cart
+    return jsonify({'code': 200, 'data': dao.cart_stats(cart)})
+
+
+@app.route('/api/update-cart', methods=['POST'])
+@login_required
+def update_cart():
+    data = request.json
+    book_id = str(data.get('id'))
+    change = data.get('change')
+
+    cart = session.get('cart', {})
+    book = Book.query.get(book_id)
+
+    if not book:
+        return jsonify({'code': 404, 'message': 'Sách không tồn tại!'})
+
+    if book_id in cart:
+        new_quantity = cart[book_id]['quantity'] + change
+
+        if new_quantity > book.availableCopies:
+            return jsonify({
+                'code': 400,
+                'message': 'Không đủ sách để mượn!',
+                'available': book.availableCopies,
+                'current_quantity': cart[book_id]['quantity']
+            })
+
+        if new_quantity > 0:
+            cart[book_id]['quantity'] = new_quantity
+        else:
+            del cart[book_id]
+
+    session['cart'] = cart
+    cart_stats = dao.cart_stats(cart)
+
+    return jsonify({
+        'code': 200,
+        'updated_quantity': cart[book_id]['quantity'] if book_id in cart else 0,
+        'cart_total_quantity': cart_stats['total_quantity']
+    })
+
+
+@app.route('/api/delete-cart', methods=['POST'])
+@login_required
+def delete_cart():
+    data = request.json
+    book_id = str(data.get('id'))
+
+    cart = session.get('cart', {})
+    if book_id in cart:
+        del cart[book_id]
+
+    session['cart'] = cart
+    cart_stats = dao.cart_stats(cart)
+
+    return jsonify({
+        'cart_total_quantity': cart_stats['total_quantity']
+    })
+
+@app.context_processor
+def common_context():
+    cart = session.get('cart', {})
+    return {
+        "cart_stats": dao.cart_stats(cart)
+    }
+
+@app.route('/book/<int:book_id>')
+def book_detail(book_id):
+    book = Book.query.get_or_404(book_id)
+    return render_template('book_detail.html', book=book)
 
 if __name__ == '__main__':
+    from BBOOK.BB.admin import *
     app.run(debug=True, port=5000)
