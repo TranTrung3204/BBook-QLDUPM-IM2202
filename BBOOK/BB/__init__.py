@@ -37,3 +37,4 @@ google_bp = make_google_blueprint(
 app.register_blueprint(google_bp, url_prefix="/login")
 
 db = SQLAlchemy(app=app)
+#123
