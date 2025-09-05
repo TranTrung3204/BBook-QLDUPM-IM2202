@@ -206,5 +206,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-/data/secret.json
+BBOOK/BB/data/secret.json
+
 
