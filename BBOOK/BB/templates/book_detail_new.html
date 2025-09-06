@@ -1,0 +1,267 @@
+{% extends "layout/base.html" %}
+
+{% block title %}{{ book.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Phần thông tin chính -->
+    <div class="row">
+        <!-- Hình ảnh sách -->
+        <div class="col-md-5">
+            <div class="book-image-container">
+                <img src="{{ url_for('static', filename=(book.image if book.image else 'img/default_book.png')) }}"
+                     alt="{{ book.title }}" 
+                     class="img-fluid rounded shadow-lg book-main-image">
+            </div>
+        </div>
+
+        <!-- Thông tin sách -->
+        <div class="col-md-7">
+            <div class="book-info">
+                <h1 class="book-title mb-3">{{ book.title }}</h1>
+                
+                <!-- Thông tin cơ bản -->
+                <div class="book-details mb-4">
+                    <p class="mb-2"><strong>Tác giả:</strong> {{ book.author.name if book.author else 'Chưa có' }}</p>
+                    <p class="mb-2"><strong>Tình trạng sách:</strong> 
+                        <span class="badge {% if book.availableCopies > 0 %}badge-success{% else %}badge-danger{% endif %}">
+                            {{ book_status }}
+                        </span>
+                    </p>
+                    <p class="mb-2"><strong>Số lượng sách còn:</strong> {{ book.availableCopies }}</p>
+                    <p class="mb-2"><strong>Nhà xuất bản:</strong> {{ book.publisher.name if book.publisher else 'Chưa có' }}</p>
+                    <p class="mb-2"><strong>Thể loại:</strong> {{ book.category.categoryName if book.category else 'Chưa có' }}</p>
+                    <p class="mb-2"><strong>Năm XB:</strong> {{ book.publicationYear }}</p>
+                    {% if book.pages %}
+                    <p class="mb-2"><strong>Số trang:</strong> {{ book.pages }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Nút hành động -->
+                <div class="action-buttons mb-4">
+                    {% if book.availableCopies > 0 %}
+                        <button class="btn btn-primary btn-lg mr-3 add-to-cart"
+                                data-id="{{ book.id }}"
+                                data-title="{{ book.title }}"
+                                data-author="{{ book.author.name if book.author else 'Chưa rõ' }}"
+                                data-stock="{{ book.availableCopies }}">
+                            <i class="fa fa-book"></i> Mượn ngay
+                        </button>
+                        <button class="btn btn-outline-primary btn-lg add-to-cart-only"
+                                data-id="{{ book.id }}"
+                                data-title="{{ book.title }}"
+                                data-author="{{ book.author.name if book.author else 'Chưa rõ' }}"
+                                data-stock="{{ book.availableCopies }}">
+                            <i class="fa fa-cart-plus"></i>
+                        </button>
+                    {% else %}
+                        <button class="btn btn-secondary btn-lg" disabled>
+                            <i class="fa fa-times"></i> Hết sách
+                        </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-secondary btn-lg ml-2">
+                        <i class="fa fa-heart"></i>
+                    </button>
+                </div>
+
+                <!-- Đánh giá -->
+                <div class="rating-section">
+                    <h5>Đánh giá</h5>
+                    <div class="rating-display">
+                        <span class="rating-score">{{ "%.1f"|format(rating_data.average) }}</span>
+                        <div class="stars">
+                            {% for i in range(1, 6) %}
+                                {% if i <= rating_data.average %}
+                                    <i class="fa fa-star text-warning"></i>
+                                {% elif i - 0.5 <= rating_data.average %}
+                                    <i class="fa fa-star-half-o text-warning"></i>
+                                {% else %}
+                                    <i class="fa fa-star-o text-muted"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <span class="rating-count">({{ rating_data.total }} đánh giá)</span>
+                    </div>
+                    
+                    {% if current_user.is_authenticated %}
+                    <button class="btn btn-sm btn-outline-primary mt-2" id="rateBookBtn">
+                        Đánh giá sách
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mô tả sách -->
+    {% if book.description %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="book-description">
+                <h4>Mô tả sách</h4>
+                <div class="description-content">
+                    {{ book.description|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sách cùng thể loại -->
+    {% if related_books %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="related-books-section">
+                <h4 class="mb-4">Sách cùng thể loại</h4>
+                <div class="related-books-carousel">
+                    <div class="row">
+                        {% for related_book in related_books[:4] %}
+                        <div class="col-md-3 col-sm-6 mb-4">
+                            <div class="card book-card h-100">
+                                <div class="book-image-wrapper">
+                                    <img src="{{ url_for('static', filename=(related_book.image if related_book.image else 'img/default_book.png')) }}"
+                                         class="card-img-top book-thumbnail" alt="{{ related_book.title }}">
+                                </div>
+                                <div class="card-body d-flex flex-column">
+                                    <h6 class="card-title">{{ related_book.title[:50] }}{% if related_book.title|length > 50 %}...{% endif %}</h6>
+                                    <p class="card-text text-muted small">{{ related_book.author.name if related_book.author else 'Chưa có tác giả' }}</p>
+                                    <p class="card-text text-muted small">{{ related_book.publicationYear }}</p>
+                                    <div class="mt-auto">
+                                        <a href="{{ url_for('book_detail', book_id=related_book.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">Xem chi tiết</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal đánh giá sách -->
+{% if current_user.is_authenticated %}
+<div class="modal fade" id="ratingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Đánh giá sách: {{ book.title }}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="ratingForm">
+                    <div class="form-group">
+                        <label>Điểm đánh giá:</label>
+                        <div class="rating-input">
+                            {% for i in range(1, 6) %}
+                            <i class="fa fa-star-o rating-star" data-rating="{{ i }}"></i>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" id="ratingValue" name="rating" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="comment">Nhận xét:</label>
+                        <textarea class="form-control" id="comment" name="comment" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="submitRating">Gửi đánh giá</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<script>
+$(document).ready(function() {
+    // Xử lý thêm vào giỏ hàng
+    $('.add-to-cart').click(function(e) {
+        e.preventDefault();
+        var bookId = $(this).data('id');
+        var bookTitle = $(this).data('title');
+        var bookAuthor = $(this).data('author');
+        var stock = $(this).data('stock');
+        
+        $.ajax({
+            url: '/api/add-cart',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                'id': bookId
+            }),
+            success: function(data) {
+                if (data.code === 200) {
+                    alert('Đã thêm "' + bookTitle + '" vào giỏ hàng!');
+                    // Cập nhật số lượng giỏ hàng trên header
+                    $('.cart-count').text(data.data.total_quantity);
+                } else {
+                    alert(data.message);
+                }
+            },
+            error: function() {
+                alert('Có lỗi xảy ra. Vui lòng thử lại!');
+            }
+        });
+    });
+    
+    // Xử lý đánh giá sách
+    $('#rateBookBtn').click(function() {
+        $('#ratingModal').modal('show');
+    });
+    
+    // Xử lý click sao đánh giá
+    $('.rating-star').click(function() {
+        var rating = $(this).data('rating');
+        $('#ratingValue').val(rating);
+        
+        $('.rating-star').removeClass('active fa-star').addClass('fa-star-o');
+        for (var i = 1; i <= rating; i++) {
+            $('.rating-star[data-rating="' + i + '"]').removeClass('fa-star-o').addClass('fa-star active');
+        }
+    });
+    
+    // Gửi đánh giá
+    $('#submitRating').click(function() {
+        var rating = $('#ratingValue').val();
+        var comment = $('#comment').val();
+        
+        if (rating == 0) {
+            alert('Vui lòng chọn số sao đánh giá!');
+            return;
+        }
+        
+        $.ajax({
+            url: '/api/rate-book',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                'book_id': {{ book.id }},
+                'rating': rating,
+                'comment': comment
+            }),
+            success: function(data) {
+                if (data.code === 200) {
+                    alert('Cảm ơn bạn đã đánh giá!');
+                    $('#ratingModal').modal('hide');
+                    location.reload(); // Reload để cập nhật đánh giá
+                } else {
+                    alert(data.message);
+                }
+            },
+            error: function() {
+                alert('Có lỗi xảy ra. Vui lòng thử lại!');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

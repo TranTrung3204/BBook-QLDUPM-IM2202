@@ -1,0 +1,394 @@
+/* CSS cho trang chi tiết sách - Tạo file: static/css/book_detail.css */
+
+/* ==== LAYOUT CHÍNH ==== */
+.book-detail-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* ==== HÌNH ẢNH SÁCH ==== */
+.book-image-container {
+    position: relative;
+    background: linear-gradient(145deg, #f0f4f8, #e2e8f0);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+
+    width: 100%;
+    height: 500px;
+    overflow: hidden;
+}
+
+.book-main-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+}
+
+.book-main-image:hover {
+    transform: scale(1.02);
+}
+
+/* ==== THÔNG TIN SÁCH ==== */
+.book-info {
+    padding: 20px 0;
+}
+
+.book-title {
+    color: #2d3748;
+    font-weight: 700;
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    line-height: 1.2;
+}
+
+.book-details {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid #4299e1;
+}
+
+.book-details p {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 12px;
+    color: #4a5568;
+}
+
+.book-details strong {
+    color: #2d3748;
+    font-weight: 600;
+}
+
+/* ==== BADGES ==== */
+.badge {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.badge-success {
+    background: linear-gradient(135deg, #48bb78, #38a169);
+    border: none;
+}
+
+.badge-danger {
+    background: linear-gradient(135deg, #f56565, #e53e3e);
+    border: none;
+}
+
+/* ==== BUTTONS ==== */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+    border: none;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(66, 153, 225, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(66, 153, 225, 0.4);
+    background: linear-gradient(135deg, #3182ce, #2b6cb0);
+}
+
+.btn-outline-primary {
+    border: 2px solid #4299e1;
+    color: #4299e1;
+    background: transparent;
+    padding: 12px 20px;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background: #4299e1;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.btn-outline-secondary {
+    border: 2px solid #a0aec0;
+    color: #a0aec0;
+    border-radius: 25px;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+    background: #a0aec0;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* ==== ĐÁNH GIÁ ==== */
+.rating-section {
+    background: linear-gradient(135deg, #edf2f7, #e2e8f0);
+    padding: 25px;
+    border-radius: 15px;
+    border-left: 4px solid #ed8936;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.rating-section h5 {
+    color: #2d3748;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.rating-display {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.rating-score {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #ed8936;
+    text-shadow: 0 2px 4px rgba(237, 137, 54, 0.2);
+}
+
+.stars {
+    font-size: 1.5rem;
+}
+
+.stars .fa-star {
+    color: #ed8936;
+    margin-right: 3px;
+    text-shadow: 0 1px 2px rgba(237, 137, 54, 0.3);
+}
+
+.stars .fa-star-half-o {
+    color: #ed8936;
+    margin-right: 3px;
+}
+
+.stars .fa-star-o {
+    color: #cbd5e0;
+    margin-right: 3px;
+}
+
+.rating-count {
+    color: #718096;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+/* ==== MÔ TẢ SÁCH ==== */
+.book-description {
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    margin-top: 40px;
+}
+
+.book-description h4 {
+    color: #2d3748;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.description-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #4a5568;
+    text-align: justify;
+}
+
+/* ==== SÁCH CÙNG THỂ LOẠI ==== */
+.related-books-section {
+    background: linear-gradient(135deg, #f7fafc, #edf2f7);
+    padding: 40px;
+    border-radius: 15px;
+    margin-top: 40px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.related-books-section h4 {
+    color: #2d3748;
+    font-weight: 600;
+    margin-bottom: 30px;
+    text-align: center;
+    position: relative;
+}
+
+.related-books-section h4:after {
+    content: '';
+    width: 50px;
+    height: 3px;
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 2px;
+}
+
+.book-card {
+    transition: all 0.3s ease;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    background: white;
+}
+
+.book-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.book-image-wrapper {
+    overflow: hidden;
+    height: 200px;
+}
+
+.book-thumbnail {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.book-card:hover .book-thumbnail {
+    transform: scale(1.1);
+}
+
+.book-card .card-body {
+    padding: 20px;
+}
+
+.book-card .card-title {
+    color: #2d3748;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    line-height: 1.3;
+}
+
+.book-card .card-text {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+/* ==== MODAL ĐÁNH GIÁ ==== */
+.rating-input {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.rating-input .fa {
+    font-size: 2rem;
+    cursor: pointer;
+    color: #cbd5e0;
+    margin: 0 5px;
+    transition: all 0.2s ease;
+}
+
+.rating-input .fa:hover,
+.rating-input .fa.active {
+    color: #ed8936;
+    transform: scale(1.1);
+}
+
+/* ==== RESPONSIVE ==== */
+@media (max-width: 768px) {
+    .book-title {
+        font-size: 2rem;
+    }
+
+    .book-main-image {
+        max-height: 300px;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .action-buttons .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .rating-display {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .rating-score {
+        font-size: 2.5rem;
+    }
+
+    .book-description,
+    .related-books-section {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 576px) {
+    .book-detail-container {
+        padding: 10px;
+    }
+
+    .book-title {
+        font-size: 1.8rem;
+    }
+
+    .book-details {
+        padding: 15px;
+    }
+
+    .rating-section {
+        padding: 15px;
+    }
+}
+
+/* ==== ANIMATIONS ==== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.book-info,
+.book-description,
+.related-books-section {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.book-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.book-card:nth-child(2) { animation-delay: 0.1s; }
+.book-card:nth-child(3) { animation-delay: 0.2s; }
+.book-card:nth-child(4) { animation-delay: 0.3s; }
+.book-card:nth-child(5) { animation-delay: 0.4s; }

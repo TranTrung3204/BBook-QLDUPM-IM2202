@@ -56,6 +56,7 @@ class BookCategory(BaseModel):
 
 
 class Library(BaseModel):
+    __tablename__ = "Librarians"
     address = Column(String(255), nullable=False)
     librarians = relationship("Librarian", backref="library", lazy=True)
     books = relationship("Book", backref="library", lazy=True)
@@ -112,6 +113,8 @@ class Book(BaseModel):
     author_id = Column(Integer, ForeignKey(Author.id))
     library_id = Column(Integer, ForeignKey(Library.id), nullable=False)
     availableCopies = Column(Integer, default=1)
+    description = Column(Text, nullable=True)  # Mô tả sách
+    pages = Column(Integer, nullable=True)  # Số trang
 
     ratings = relationship("Rating", backref="book", lazy=True)
     borrow_requests = relationship("BorrowRequest", backref="book", lazy=True)
