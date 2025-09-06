@@ -73,3 +73,40 @@ def cart_stats(cart):
     return {
         'total_quantity': total_quantity
     }
+
+
+def get_book_by_id(book_id):
+    """Lấy thông tin sách theo ID"""
+    return Book.query.get(book_id)
+
+
+def get_books_by_category(category_id, limit=8, exclude_id=None):
+    """Lấy sách cùng thể loại (để hiển thị trong phần gợi ý)"""
+    query = Book.query.filter(Book.category_id == category_id)
+    if exclude_id:
+        query = query.filter(Book.id != exclude_id)
+    return query.limit(limit).all()
+
+
+def get_book_rating(book_id):
+    """Tính điểm đánh giá trung bình của sách"""
+    from sqlalchemy import func
+    from BBOOK.BB.models import Rating
+
+    result = db.session.query(
+        func.avg(Rating.score).label('avg_rating'),
+        func.count(Rating.id).label('total_ratings')
+    ).filter(Rating.book_id == book_id).first()
+
+    return {
+        'average': float(result.avg_rating) if result.avg_rating else 0,
+        'total': result.total_ratings if result.total_ratings else 0
+    }
+
+
+# def cart_stats(cart):
+#     """Thống kê giỏ hàng (đã có, chỉ để tham khảo)"""
+#     total_quantity = sum(details['quantity'] for details in cart.values())
+#     return {
+#         'total_quantity': total_quantity
+#     }

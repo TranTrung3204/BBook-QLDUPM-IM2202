@@ -6,7 +6,7 @@ from flask_login import login_user, logout_user, login_required, current_user, L
 from sqlalchemy import or_
 
 from BBOOK.BB import app, dao, models, db
-from BBOOK.BB.models import UserRole, Book, User
+from BBOOK.BB.models import UserRole, Book, User, Rating, Member
 
 
 @app.route("/")
@@ -349,11 +349,89 @@ def common_context():
         "cart_stats": dao.cart_stats(cart)
     }
 
+
 @app.route('/book/<int:book_id>')
 def book_detail(book_id):
-    book = Book.query.get_or_404(book_id)
-    return render_template('book_detail.html', book=book)
+    book = dao.get_book_by_id(book_id)
+    if not book:
+        return render_template('404.html'), 404
 
+    # Lấy sách cùng thể loại
+    related_books = []
+    if book.category_id:
+        related_books = dao.get_books_by_category(
+            book.category_id,
+            limit=8,
+            exclude_id=book.id
+        )
+
+    # Lấy đánh giá
+    rating_data = dao.get_book_rating(book_id)
+
+    # Kiểm tra trạng thái sách
+    book_status = "Có sẵn" if book.availableCopies > 0 else "Hết sách"
+
+    return render_template(
+        'book_detail_new.html',
+        book=book,
+        related_books=related_books,
+        rating_data=rating_data,
+        book_status=book_status
+    )
+
+
+@app.route('/api/rate-book', methods=['POST'])
+@login_required
+def rate_book():
+    """API để người dùng đánh giá sách"""
+    try:
+        data = request.json
+        book_id = data.get('book_id')
+        rating = data.get('rating')
+        comment = data.get('comment', '')
+
+        if not book_id or not rating:
+            return jsonify({'code': 400, 'message': 'Thiếu thông tin đánh giá!'})
+
+        if not (1 <= int(rating) <= 5):
+            return jsonify({'code': 400, 'message': 'Điểm đánh giá phải từ 1 đến 5!'})
+
+        # Kiểm tra sách có tồn tại không
+        book = Book.query.get(book_id)
+        if not book:
+            return jsonify({'code': 404, 'message': 'Sách không tồn tại!'})
+
+        # Kiểm tra member có tồn tại không
+        member = Member.query.filter_by(user_id=current_user.id).first()
+        if not member:
+            return jsonify({'code': 403, 'message': 'Bạn cần có tài khoản thành viên để đánh giá!'})
+
+        # Kiểm tra đã đánh giá chưa
+        existing_rating = Rating.query.filter_by(
+            member_id=member.id,
+            book_id=book_id
+        ).first()
+
+        if existing_rating:
+            # Cập nhật đánh giá cũ
+            existing_rating.score = rating
+            existing_rating.comment = comment
+        else:
+            # Tạo đánh giá mới
+            new_rating = Rating(
+                member_id=member.id,
+                book_id=book_id,
+                score=rating,
+                comment=comment
+            )
+            db.session.add(new_rating)
+
+        db.session.commit()
+        return jsonify({'code': 200, 'message': 'Đánh giá thành công!'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': f'Lỗi server: {str(e)}'})
 if __name__ == '__main__':
     from BBOOK.BB.admin import *
     app.run(debug=True, port=5000)
