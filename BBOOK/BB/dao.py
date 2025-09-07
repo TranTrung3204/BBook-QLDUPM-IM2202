@@ -1,6 +1,6 @@
 import hashlib
 from BBOOK.BB import db
-from BBOOK.BB.models import BookCategory, Book, User
+from BBOOK.BB.models import BookCategory, Book, User, Author, Publisher
 
 
 def load_book_categories():
@@ -104,9 +104,10 @@ def get_book_rating(book_id):
     }
 
 
-# def cart_stats(cart):
-#     """Thống kê giỏ hàng (đã có, chỉ để tham khảo)"""
-#     total_quantity = sum(details['quantity'] for details in cart.values())
-#     return {
-#         'total_quantity': total_quantity
-#     }
+def load_authors():
+    """Lấy danh sách tác giả"""
+    return Author.query.order_by(Author.name).all()
+
+def load_publishers():
+    """Lấy danh sách nhà xuất bản"""
+    return Publisher.query.order_by(Publisher.name).all()
