@@ -1,6 +1,11 @@
 import hashlib
+from datetime import date, timedelta, datetime
+from sqlalchemy import func, and_
+
+
 from BBOOK.BB import db
-from BBOOK.BB.models import BookCategory, Book, User, Author, Publisher
+from BBOOK.BB.models import BookCategory, Book, User, Author, Publisher, Member, StatusPenalty, WaitingList, \
+    StatusRequest, ApprovalType, BorrowRecord, BorrowRequest, UserRole, BorrowRequestBatch
 
 
 def load_book_categories():
@@ -19,16 +24,58 @@ def load_books(kw: object = None) -> object:
     return products.all()
 
 
-def add_user(fullName, username, password, **kwargs):
-    password = str(hashlib.md5(password.strip().encode('utf-8')).hexdigest())
-    user = User(fullName=fullName.strip(),
-                username=username.strip(),
-                password=password,
-                email=kwargs.get('email'),
-                avatar=kwargs.get('avatar'))
-    db.session.add(user)
-    db.session.commit()
+# Trong file dao.py, sửa function add_user:
 
+def add_user(fullName, username, password, **kwargs):
+    """Tạo User và tự động tạo Member"""
+    password = str(hashlib.md5(password.strip().encode('utf-8')).hexdigest())
+
+    try:
+        # Tạo User
+        user = User(fullName=fullName.strip(),
+                    username=username.strip(),
+                    password=password,
+                    email=kwargs.get('email'),
+                    avatar=kwargs.get('avatar'))
+        db.session.add(user)
+        db.session.flush()  # Để lấy user.id
+
+        # Tự động tạo Member cho User (trừ Admin)
+        if user.role == UserRole.MEMBER:
+            member = Member(
+                user_id=user.id,
+                borrowLimit=5,  # Mặc định cho phép mượn 5 cuốn
+                currentBorrowCount=0,
+                statusPenalty=StatusPenalty.LEVEL1
+            )
+            db.session.add(member)
+
+        db.session.commit()
+        return user
+
+    except Exception as e:
+        db.session.rollback()
+        raise e
+
+
+def get_or_create_member(user_id):
+    """Lấy Member hoặc tạo mới nếu chưa có"""
+    member = Member.query.filter_by(user_id=user_id).first()
+
+    if not member:
+        # Tự động tạo Member nếu chưa có
+        user = User.query.get(user_id)
+        if user and user.role == UserRole.MEMBER:
+            member = Member(
+                user_id=user_id,
+                borrowLimit=5,
+                currentBorrowCount=0,
+                statusPenalty=StatusPenalty.LEVEL1
+            )
+            db.session.add(member)
+            db.session.commit()
+
+    return member
 
 def search_books(kw):
     if not kw:
@@ -111,3 +158,689 @@ def load_authors():
 def load_publishers():
     """Lấy danh sách nhà xuất bản"""
     return Publisher.query.order_by(Publisher.name).all()
+
+
+def check_member_borrow_eligibility(member_id):
+    """
+    Kiểm tra điều kiện mượn sách của member
+    Returns: dict với status và message
+    """
+    member = Member.query.get(member_id)
+    if not member:
+        return {'eligible': False, 'message': 'Không tìm thấy thông tin thành viên'}
+
+    # Kiểm tra tài khoản bị khóa (≥ Level 4)
+    if member.statusPenalty.value >= StatusPenalty.LEVEL4.value:
+        return {'eligible': False, 'message': 'Tài khoản đã bị khóa. Liên hệ thủ thư'}
+
+    # Kiểm tra số sách đang mượn
+    current_count = member.get_current_borrow_count()
+    if current_count >= member.borrowLimit:
+        return {'eligible': False, 'message': f'Đã mượn tối đa {member.borrowLimit} cuốn'}
+
+    # Kiểm tra sách quá hạn
+    if member.has_overdue_books():
+        return {'eligible': False, 'message': 'Có sách quá hạn chưa trả'}
+
+    return {'eligible': True, 'available_slots': member.borrowLimit - current_count}
+
+
+def add_to_waiting_list(member_id, book_id):
+    """Thêm vào danh sách chờ"""
+    # Kiểm tra đã có trong danh sách chờ chưa
+    existing = WaitingList.query.filter_by(member_id=member_id, book_id=book_id).first()
+    if existing:
+        return {'success': False, 'message': 'Đã có trong danh sách chờ'}
+
+    # Tính priority (thứ tự tiếp theo)
+    max_priority = db.session.query(func.max(WaitingList.priority)) \
+                       .filter_by(book_id=book_id).scalar() or 0
+
+    waiting_item = WaitingList(
+        member_id=member_id,
+        book_id=book_id,
+        priority=max_priority + 1
+    )
+
+    db.session.add(waiting_item)
+    db.session.commit()
+
+    return {'success': True, 'position': max_priority + 1}
+
+
+def get_borrow_statistics():
+    """B2: Lấy thống kê cho dashboard"""
+    today = date.today()
+
+    # Số yêu cầu chờ duyệt
+    pending_requests = BorrowRequest.query.filter_by(statusRequest=StatusRequest.PENDING).count()
+
+    # Số sách đã mượn (chưa trả)
+    borrowed_books = BorrowRecord.query.filter(BorrowRecord.returnDate.is_(None)).count()
+
+    # Số sách quá hạn (mượn quá 30 ngày chưa trả)
+    overdue_date = today - timedelta(days=30)
+    overdue_books = BorrowRecord.query.filter(
+        and_(
+            BorrowRecord.returnDate.is_(None),
+            BorrowRecord.borrowDate <= overdue_date
+        )
+    ).count()
+
+    # Số yêu cầu hôm nay
+    today_requests = BorrowRequest.query.filter(
+        func.date(BorrowRequest.requestDate) == today
+    ).count()
+
+    return {
+        'pending_requests': pending_requests,
+        'borrowed_books': borrowed_books,
+        'overdue_books': overdue_books,
+        'today_requests': today_requests
+    }
+
+
+def get_pending_requests_with_details():
+    """B4: Lấy danh sách yêu cầu chờ duyệt với đầy đủ thông tin"""
+    requests = db.session.query(BorrowRequest) \
+        .join(BorrowRequest.member) \
+        .join(Member.user) \
+        .join(BorrowRequest.book) \
+        .filter(BorrowRequest.statusRequest == StatusRequest.PENDING) \
+        .order_by(BorrowRequest.requestDate.desc()) \
+        .all()
+
+    return requests
+
+
+def check_member_violations(member_id):
+    """Kiểm tra vi phạm của member - Luồng ngoại lệ"""
+    violations = []
+    member = Member.query.get(member_id)
+
+    if not member:
+        return violations
+
+    # Kiểm tra sách quá hạn
+    today = date.today()
+    overdue_date = today - timedelta(days=30)
+
+    overdue_records = BorrowRecord.query.filter(
+        and_(
+            BorrowRecord.member_id == member_id,
+            BorrowRecord.returnDate.is_(None),
+            BorrowRecord.borrowDate <= overdue_date
+        )
+    ).all()
+
+    if overdue_records:
+        violations.append({
+            'type': 'OVERDUE',
+            'message': f'Có {len(overdue_records)} sách quá hạn chưa trả',
+            'severity': 'high',
+            'records': overdue_records
+        })
+
+    # Kiểm tra penalty status
+    if member.statusPenalty.value >= StatusPenalty.LEVEL3.value:
+        violations.append({
+            'type': 'PENALTY',
+            'message': f'Tài khoản đang bị phạt mức {member.statusPenalty.value}',
+            'severity': 'medium'
+        })
+
+    return violations
+
+
+def approve_borrow_request(request_id, approval_type, processor_id, **kwargs):
+    """B5-B7: Duyệt yêu cầu mượn sách"""
+    try:
+        request_obj = BorrowRequest.query.get(request_id)
+        if not request_obj:
+            return {'success': False, 'message': 'Không tìm thấy yêu cầu'}
+
+        if approval_type == 'approve':
+            request_obj.statusRequest = StatusRequest.APPROVED
+            request_obj.approvalType = ApprovalType.NORMAL
+
+            # Cập nhật số lượng sách và member
+            request_obj.book.availableCopies -= 1
+            request_obj.member.currentBorrowCount += 1
+
+            # Tạo BorrowRecord
+            borrow_record = BorrowRecord(
+                member_id=request_obj.member_id,
+                borrowDate=date.today()
+            )
+            db.session.add(borrow_record)
+
+        elif approval_type == 'conditional':
+            request_obj.statusRequest = StatusRequest.APPROVED
+            request_obj.approvalType = ApprovalType.CONDITIONAL
+            request_obj.specialConditions = kwargs.get('conditions', '')
+
+            # Cập nhật thời hạn nếu có
+            if kwargs.get('new_return_date'):
+                request_obj.expectedReturnDate = kwargs.get('new_return_date')
+
+        elif approval_type == 'reject':
+            request_obj.statusRequest = StatusRequest.REJECTED
+            request_obj.rejectionReason = kwargs.get('reason', '')
+
+        # Cập nhật thông tin duyệt
+        request_obj.approvedDate = date.today()
+        request_obj.processedBy = processor_id
+
+        db.session.commit()
+
+        # TODO: Gửi email thông báo (B6)
+        send_approval_notification(request_obj)
+
+        return {'success': True, 'message': 'Duyệt thành công'}
+
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f'Lỗi: {str(e)}'}
+
+
+def send_approval_notification(request_obj):
+    """B6: Gửi email thông báo kết quả (placeholder)"""
+    # TODO: Implement email sending
+    email_content = {
+        'to': request_obj.member.user.email,
+        'subject': f'Kết quả yêu cầu mượn sách: {request_obj.book.title}',
+        'status': request_obj.statusRequest.value,
+        'book_title': request_obj.book.title,
+        'approval_type': request_obj.approvalType.value if request_obj.approvalType else None
+    }
+
+    print(f"[EMAIL] Gửi thông báo: {email_content}")
+    # Tích hợp với service email thực tế
+    return True
+
+
+def generate_batch_code():
+    """Sinh mã batch duy nhất, auto tăng theo ngày"""
+    today = datetime.now()
+    year = today.strftime("%Y")
+
+    # Lấy mã lớn nhất trong năm hiện tại
+    last_code = (
+        BorrowRequestBatch.query
+        .filter(BorrowRequestBatch.batchCode.like(f"BR{year}%"))
+        .order_by(BorrowRequestBatch.batchCode.desc())
+        .first()
+    )
+
+    if last_code:
+        # Tách số thứ tự ở cuối mã
+        last_number = int(last_code.batchCode[-3:])
+        new_number = last_number + 1
+    else:
+        new_number = 1
+
+    return f"BR{year}{new_number:03d}"
+
+
+def create_borrow_request_batch(member_id, total_books, notes=None):
+    """Tạo batch yêu cầu mượn sách"""
+    try:
+        batch = BorrowRequestBatch(
+            member_id=member_id,
+            batchCode=generate_batch_code(),
+            totalBooks=total_books,
+            batchStatus=StatusRequest.PENDING,
+            requestDate=date.today(),
+            notes=notes
+        )
+
+        db.session.add(batch)
+        db.session.flush()  # Để lấy batch.id
+        return batch
+
+    except Exception as e:
+        db.session.rollback()
+        raise e
+
+
+def submit_batch_borrow_request(member_id, cart_items):
+    """Gửi yêu cầu mượn sách theo batch"""
+    try:
+        total_books = sum(item['quantity'] for item in cart_items.values())
+
+        # Tạo batch trước
+        batch = create_borrow_request_batch(member_id, total_books)
+
+        # Tạo các yêu cầu con
+        created_requests = []
+        for book_id, item in cart_items.items():
+            book = Book.query.get(book_id)
+            if not book or book.availableCopies < item['quantity']:
+                raise Exception(f'Sách "{item["title"]}" không đủ số lượng!')
+
+            for _ in range(item['quantity']):
+                borrow_request = BorrowRequest(
+                    member_id=member_id,
+                    book_id=book_id,
+                    batch_id=batch.id,  # THÊM BATCH_ID
+                    requestDate=date.today(),
+                    statusRequest=StatusRequest.PENDING
+                )
+                db.session.add(borrow_request)
+                created_requests.append(borrow_request)
+
+        db.session.commit()
+        return {
+            'success': True,
+            'batch': batch,
+            'requests': created_requests
+        }
+
+    except Exception as e:
+        db.session.rollback()
+        raise e
+
+
+def get_member_borrow_batches(member_id):
+    """Lấy danh sách batch yêu cầu mượn của member"""
+    return BorrowRequestBatch.query.filter_by(member_id=member_id) \
+        .order_by(BorrowRequestBatch.requestDate.desc()) \
+        .all()
+
+
+def get_batch_with_details(batch_id):
+    """Lấy thông tin chi tiết batch"""
+    batch = BorrowRequestBatch.query.get(batch_id)
+    if not batch:
+        return None
+
+    # Load các requests trong batch
+    requests = BorrowRequest.query.filter_by(batch_id=batch_id) \
+        .join(Book) \
+        .all()
+
+    return {
+        'batch': batch,
+        'requests': requests,
+        'books': [req.book for req in requests]
+    }
+
+
+def approve_batch_request(batch_id, approval_type, processor_id, **kwargs):
+    """Duyệt cả batch yêu cầu mượn"""
+    try:
+        batch = BorrowRequestBatch.query.get(batch_id)
+        if not batch:
+            return {'success': False, 'message': 'Không tìm thấy batch'}
+
+        # Cập nhật trạng thái batch
+        if approval_type == 'approve':
+            batch.batchStatus = StatusRequest.APPROVED
+
+            # Duyệt tất cả requests trong batch
+            requests = BorrowRequest.query.filter_by(batch_id=batch_id).all()
+            for request in requests:
+                request.statusRequest = StatusRequest.APPROVED
+                request.approvedDate = date.today()
+                request.processedBy = processor_id
+
+                # Cập nhật số lượng sách
+                request.book.availableCopies -= 1
+
+            # Cập nhật số sách đang mượn của member
+            batch.member.currentBorrowCount += len(requests)
+
+        elif approval_type == 'reject':
+            batch.batchStatus = StatusRequest.REJECTED
+
+            # Từ chối tất cả requests
+            requests = BorrowRequest.query.filter_by(batch_id=batch_id).all()
+            for request in requests:
+                request.statusRequest = StatusRequest.REJECTED
+                request.approvedDate = date.today()
+                request.processedBy = processor_id
+                request.rejectionReason = kwargs.get('reason', '')
+
+        batch.approvedDate = date.today()
+        batch.processedBy = processor_id
+        batch.notes = kwargs.get('notes', '')
+
+        db.session.commit()
+        return {'success': True, 'message': 'Xử lý batch thành công'}
+
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f'Lỗi: {str(e)}'}
+
+
+def cancel_borrow_batch(batch_id, user_id):
+    """
+    Hủy batch yêu cầu mượn sách
+    Args:
+        batch_id: ID của batch cần hủy
+        user_id: ID của user thực hiện hủy
+    Returns:
+        dict: kết quả hủy batch
+    """
+    try:
+        from BBOOK.BB.models import BorrowRequestBatch
+
+        # Tìm batch
+        batch = BorrowRequestBatch.query.get(batch_id)
+        if not batch:
+            return {'success': False, 'message': 'Không tìm thấy batch'}
+
+        # Kiểm tra quyền sở hữu
+        member = Member.query.filter_by(user_id=user_id).first()
+        if not member or batch.member_id != member.id:
+            return {'success': False, 'message': 'Không có quyền hủy batch này'}
+
+        # Kiểm tra trạng thái
+        if batch.batchStatus != StatusRequest.PENDING:
+            return {'success': False, 'message': 'Chỉ có thể hủy batch đang chờ duyệt'}
+
+        # Đếm số requests trong batch
+        requests_count = BorrowRequest.query.filter_by(batch_id=batch_id).count()
+
+        # Xóa tất cả requests trong batch
+        BorrowRequest.query.filter_by(batch_id=batch_id).delete()
+
+        # Xóa batch
+        db.session.delete(batch)
+        db.session.commit()
+
+        return {
+            'success': True,
+            'message': f'Đã hủy batch {batch.batchCode} ({requests_count} yêu cầu)',
+            'batch_code': batch.batchCode,
+            'cancelled_requests': requests_count
+        }
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f'Lỗi: {str(e)}'}
+
+
+def get_borrow_management_stats():
+    """Lấy thống kê cho dashboard quản lý mượn trả"""
+    from datetime import date, timedelta
+
+    today = date.today()
+
+    # Số yêu cầu chờ duyệt
+    pending_requests = db.session.query(BorrowRequestBatch).filter_by(
+        batchStatus=StatusRequest.PENDING
+    ).count()
+
+    # Số sách đã mượn (chưa trả)
+    borrowed_books = db.session.query(BorrowRecord).filter(
+        BorrowRecord.returnDate.is_(None)
+    ).count()
+
+    # Số sách quá hạn (mượn > 30 ngày chưa trả)
+    overdue_threshold = today - timedelta(days=30)
+    overdue_books = db.session.query(BorrowRecord).filter(
+        BorrowRecord.returnDate.is_(None),
+        BorrowRecord.borrowDate < overdue_threshold
+    ).count()
+
+    # Số yêu cầu hôm nay
+    today_requests = db.session.query(BorrowRequestBatch).filter(
+        func.date(BorrowRequestBatch.requestDate) == today
+    ).count()
+
+    return {
+        'pending_requests': pending_requests,
+        'borrowed_books': borrowed_books,
+        'overdue_books': overdue_books,
+        'today_requests': today_requests
+    }
+
+
+def get_pending_requests(page=1, per_page=10, filters=None):
+    """Lấy danh sách yêu cầu chờ duyệt với phân trang"""
+    query = db.session.query(BorrowRequestBatch).filter_by(
+        batchStatus=StatusRequest.PENDING
+    ).order_by(BorrowRequestBatch.requestDate.desc())
+
+    # Áp dụng filters nếu có
+    if filters:
+        if filters.get('member_name'):
+            query = query.join(Member).join(User).filter(
+                User.fullName.ilike(f"%{filters['member_name']}%")
+            )
+
+        if filters.get('date_from'):
+            query = query.filter(BorrowRequestBatch.requestDate >= filters['date_from'])
+
+        if filters.get('date_to'):
+            query = query.filter(BorrowRequestBatch.requestDate <= filters['date_to'])
+
+    # Phân trang
+    total = query.count()
+    batches = query.offset((page - 1) * per_page).limit(per_page).all()
+
+    return {
+        'batches': batches,
+        'total': total,
+        'pages': (total + per_page - 1) // per_page,
+        'current_page': page
+    }
+
+
+def check_member_violations(member_id):
+    """Kiểm tra vi phạm của member"""
+    from datetime import date, timedelta
+
+    member = Member.query.get(member_id)
+    if not member:
+        return {'has_violations': False, 'warnings': []}
+
+    warnings = []
+
+    # Kiểm tra sách quá hạn
+    overdue_threshold = date.today() - timedelta(days=30)
+    overdue_count = db.session.query(BorrowRecord).filter(
+        BorrowRecord.member_id == member_id,
+        BorrowRecord.returnDate.is_(None),
+        BorrowRecord.borrowDate < overdue_threshold
+    ).count()
+
+    if overdue_count > 0:
+        warnings.append(f"Có {overdue_count} sách quá hạn chưa trả")
+
+    # Kiểm tra số sách đang mượn
+    current_borrowed = db.session.query(BorrowRecord).filter(
+        BorrowRecord.member_id == member_id,
+        BorrowRecord.returnDate.is_(None)
+    ).count()
+
+    if current_borrowed >= member.borrowLimit:
+        warnings.append(f"Đã mượn {current_borrowed}/{member.borrowLimit} sách (giới hạn)")
+
+    # Kiểm tra penalty level
+    if member.statusPenalty.value >= 3:
+        warnings.append(f"Mức phạt cao (Level {member.statusPenalty.value})")
+
+    return {
+        'has_violations': len(warnings) > 0,
+        'warnings': warnings,
+        'overdue_count': overdue_count,
+        'current_borrowed': current_borrowed,
+        'penalty_level': member.statusPenalty.value
+    }
+
+
+def approve_batch_with_conditions(batch_id, approval_type, processor_id, **kwargs):
+    """Duyệt batch với các điều kiện khác nhau"""
+    try:
+        batch = BorrowRequestBatch.query.get(batch_id)
+        if not batch:
+            return {'success': False, 'message': 'Không tìm thấy batch'}
+
+        if batch.batchStatus != StatusRequest.PENDING:
+            return {'success': False, 'message': 'Batch đã được xử lý'}
+
+        member_violations = check_member_violations(batch.member_id)
+
+        if approval_type == 'approve':
+            # Duyệt bình thường
+            result = _process_approval(batch, processor_id, **kwargs)
+
+        elif approval_type == 'conditional':
+            # Duyệt có điều kiện
+            result = _process_conditional_approval(batch, processor_id, **kwargs)
+
+        elif approval_type == 'reject':
+            # Từ chối
+            result = _process_rejection(batch, processor_id, **kwargs)
+
+        else:
+            return {'success': False, 'message': 'Loại duyệt không hợp lệ'}
+
+        if result['success']:
+            # Gửi email thông báo
+            send_approval_notification(batch, approval_type, **kwargs)
+
+        return result
+
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f'Lỗi: {str(e)}'}
+
+
+def _process_approval(batch, processor_id, **kwargs):
+    """Xử lý duyệt bình thường"""
+    batch.batchStatus = StatusRequest.APPROVED
+    batch.approvedDate = date.today()
+    batch.processedBy = processor_id
+    batch.notes = kwargs.get('notes', '')
+
+    # Duyệt tất cả requests trong batch
+    requests = BorrowRequest.query.filter_by(batch_id=batch.id).all()
+    for request in requests:
+        request.statusRequest = StatusRequest.APPROVED
+        request.approvedDate = date.today()
+        request.processedBy = processor_id
+
+        # Giảm số lượng sách có sẵn
+        request.book.availableCopies -= 1
+
+    # Cập nhật số sách đang mượn của member
+    batch.member.currentBorrowCount += len(requests)
+
+    db.session.commit()
+    return {'success': True, 'message': 'Duyệt thành công'}
+
+
+def _process_conditional_approval(batch, processor_id, **kwargs):
+    """Xử lý duyệt có điều kiện"""
+    batch.batchStatus = StatusRequest.APPROVED
+    batch.approvedDate = date.today()
+    batch.processedBy = processor_id
+    batch.notes = f"Điều kiện: {kwargs.get('conditions', '')}"
+
+    requests = BorrowRequest.query.filter_by(batch_id=batch.id).all()
+    for request in requests:
+        request.statusRequest = StatusRequest.APPROVED
+        request.approvedDate = date.today()
+        request.processedBy = processor_id
+        request.specialConditions = kwargs.get('conditions', '')
+
+        # Áp dụng thay đổi thời hạn nếu có
+        if kwargs.get('custom_return_date'):
+            request.expectedReturnDate = kwargs['custom_return_date']
+
+        request.book.availableCopies -= 1
+
+    batch.member.currentBorrowCount += len(requests)
+
+    db.session.commit()
+    return {'success': True, 'message': 'Duyệt có điều kiện thành công'}
+
+
+def _process_rejection(batch, processor_id, **kwargs):
+    """Xử lý từ chối"""
+    batch.batchStatus = StatusRequest.REJECTED
+    batch.approvedDate = date.today()
+    batch.processedBy = processor_id
+    batch.notes = kwargs.get('rejection_reason', '')
+
+    requests = BorrowRequest.query.filter_by(batch_id=batch.id).all()
+    for request in requests:
+        request.statusRequest = StatusRequest.REJECTED
+        request.approvedDate = date.today()
+        request.processedBy = processor_id
+        request.rejectionReason = kwargs.get('rejection_reason', '')
+
+    db.session.commit()
+    return {'success': True, 'message': 'Từ chối thành công'}
+
+
+def send_approval_notification(batch, approval_type, **kwargs):
+    """Gửi email thông báo kết quả duyệt"""
+    member = batch.member
+    user = member.user
+
+    # Lấy danh sách sách trong batch
+    requests = BorrowRequest.query.filter_by(batch_id=batch.id).all()
+    books_list = [f"- {req.book.title} ({req.book.author.name})" for req in requests]
+
+    if approval_type == 'approve':
+        subject = f"Yêu cầu mượn sách {batch.batchCode} đã được duyệt"
+        message = f"""
+        Chào {user.fullName},
+
+        Yêu cầu mượn sách của bạn đã được CHẤP NHẬN.
+
+        Mã yêu cầu: {batch.batchCode}
+        Số sách: {batch.totalBooks}
+        Danh sách sách:
+        {chr(10).join(books_list)}
+
+        Vui lòng đến thư viện để nhận sách.
+
+        Trân trọng,
+        Thư viện
+        """
+
+    elif approval_type == 'conditional':
+        subject = f"Yêu cầu mượn sách {batch.batchCode} được duyệt có điều kiện"
+        message = f"""
+        Chào {user.fullName},
+
+        Yêu cầu mượn sách của bạn được CHẤP NHẬN với điều kiện.
+
+        Mã yêu cầu: {batch.batchCode}
+        Điều kiện: {kwargs.get('conditions', '')}
+
+        Danh sách sách:
+        {chr(10).join(books_list)}
+
+        Vui lòng tuân thủ điều kiện và đến thư viện nhận sách.
+
+        Trân trọng,
+        Thư viện
+        """
+
+    elif approval_type == 'reject':
+        subject = f"Yêu cầu mượn sách {batch.batchCode} bị từ chối"
+        message = f"""
+        Chào {user.fullName},
+
+        Rất tiếc, yêu cầu mượn sách của bạn đã bị TỪ CHỐI.
+
+        Mã yêu cầu: {batch.batchCode}
+        Lý do: {kwargs.get('rejection_reason', '')}
+
+        Vui lòng liên hệ thư viện để biết thêm chi tiết.
+
+        Trân trọng,
+        Thư viện
+        """
+
+    # TODO: Tích hợp với email service thực tế
+    print(f"[EMAIL] To: {user.email}")
+    print(f"[EMAIL] Subject: {subject}")
+    print(f"[EMAIL] Message: {message}")
+
+    return True

@@ -1,0 +1,185 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">📋 Yêu cầu mượn chờ duyệt</h1>
+        <a href="{{ url_for('borrowmanagement.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Về Dashboard
+        </a>
+    </div>
+
+    <!-- Filter form -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Bộ lọc</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="member_name">Tên thành viên:</label>
+                    <input type="text" class="form-control" id="member_name" name="member_name"
+                           value="{{ filters.member_name or '' }}" placeholder="Nhập tên thành viên">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="date_from">Từ ngày:</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from"
+                           value="{{ filters.date_from or '' }}">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="date_to">Đến ngày:</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to"
+                           value="{{ filters.date_to or '' }}">
+                </div>
+                <div class="col-md-2 mb-3">
+                    <label>&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-search"></i> Lọc
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Danh sách yêu cầu ({{ total }} kết quả)
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if batches %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Mã yêu cầu</th>
+                            <th>Thành viên</th>
+                            <th>Email</th>
+                            <th>Số sách</th>
+                            <th>Ngày yêu cầu</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for batch in batches %}
+                        <tr>
+                            <td><code>{{ batch.batchCode }}</code></td>
+                            <td>{{ batch.member.user.fullName }}</td>
+                            <td>{{ batch.member.user.email }}</td>
+                            <td>
+                                <span class="badge badge-info">{{ batch.totalBooks }} cuốn</span>
+                            </td>
+                            <td>{{ batch.requestDate.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge badge-warning">Chờ duyệt</span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('requestdetail.detail', batch_id=batch.id) }}"
+                                   class="btn btn-sm btn-primary" title="Xem chi tiết">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <button class="btn btn-sm btn-success"
+                                        onclick="quickApprove({{ batch.id }})" title="Duyệt nhanh">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger"
+                                        onclick="quickReject({{ batch.id }})" title="Từ chối nhanh">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pages > 1 %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% for page_num in range(1, pages + 1) %}
+                    <li class="page-item {{ 'active' if page_num == current_page else '' }}">
+                        <a class="page-link" href="?page={{ page_num }}{{ '&' + request.query_string.decode() if request.query_string and 'page' not in request.query_string.decode() else '' }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Không tìm thấy yêu cầu nào phù hợp với bộ lọc.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script>
+function quickApprove(batchId) {
+    if (confirm('Bạn có chắc muốn duyệt yêu cầu này?')) {
+        fetch('/admin/requestdetail/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                batch_id: batchId,
+                approval_type: 'approve',
+                notes: 'Duyệt nhanh từ danh sách'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Duyệt thành công!');
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Có lỗi xảy ra: ' + error);
+        });
+    }
+}
+
+function quickReject(batchId) {
+    const reason = prompt('Nhập lý do từ chối:');
+    if (reason) {
+        fetch('/admin/requestdetail/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                batch_id: batchId,
+                approval_type: 'reject',
+                rejection_reason: reason
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Từ chối thành công!');
+                location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Có lỗi xảy ra: ' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

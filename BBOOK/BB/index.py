@@ -7,7 +7,7 @@ from flask_login import login_user, logout_user, login_required, current_user, L
 from sqlalchemy import or_
 
 from BBOOK.BB import app, dao, models, db, google_bp
-from BBOOK.BB.models import UserRole, Book, User, Rating, Member
+from BBOOK.BB.models import UserRole, Book, User, Rating, Member, BorrowRequest, StatusRequest, StatusPenalty
 
 
 @app.route("/")
@@ -88,23 +88,18 @@ def login_google():
 
 
 def handle_google_oauth():
-    """Xử lý thông tin từ Google OAuth"""
+    """Xử lý thông tin từ Google OAuth - Tự động tạo Member"""
     try:
         resp = google.get("/oauth2/v2/userinfo")
         if not resp.ok:
-            print(f"Google API error: {resp.status_code} - {resp.text}")
             flash("Không thể lấy thông tin từ Google", "error")
             return redirect(url_for('user_signin'))
 
         user_info = resp.json()
-        print(f"Google user info: {user_info}")
-
         email = user_info.get("email")
         full_name = user_info.get("name", "")
-        picture = user_info.get("picture", "")
 
         if not email:
-            print("No email in user info")
             flash("Không thể lấy email từ Google", "error")
             return redirect(url_for('user_signin'))
 
@@ -112,7 +107,6 @@ def handle_google_oauth():
         user = User.query.filter_by(email=email).first()
 
         if not user:
-            print(f"Creating new user: {email}")
             try:
                 base_username = email.split("@")[0]
                 username = base_username
@@ -132,20 +126,24 @@ def handle_google_oauth():
                 )
 
                 db.session.add(user)
+                db.session.flush()  # Lấy user.id
+
+                # Tự động tạo Member
+                member = Member(
+                    user_id=user.id,
+                    borrowLimit=5,
+                    currentBorrowCount=0,
+                    statusPenalty=StatusPenalty.LEVEL1
+                )
+                db.session.add(member)
                 db.session.commit()
-                print(f"User created successfully: {username}")
 
             except Exception as e:
-                print(f"Error creating user: {str(e)}")
                 db.session.rollback()
                 flash("Lỗi tạo tài khoản", "error")
                 return redirect(url_for('user_signin'))
-        else:
-            print(f"Found existing user: {user.username}")
 
         login_user(user, remember=True)
-        print(f"Login successful: {user.email}")
-        print(f"Current user authenticated: {current_user.is_authenticated}")
 
         if user.role == UserRole.ADMIN:
             return redirect(url_for('admin_login'))
@@ -154,10 +152,8 @@ def handle_google_oauth():
             return redirect(url_for('index'))
 
     except Exception as e:
-        print(f"Google login error: {str(e)}")
         flash("Lỗi đăng nhập Google", "error")
         return redirect(url_for('user_signin'))
-
 
 @oauth_authorized.connect_via(google_bp)
 def google_logged_in(blueprint, token):
@@ -344,12 +340,18 @@ def cart():
 @app.route('/api/add-cart', methods=['POST'])
 @login_required
 def add_to_cart():
+    """API thêm sách vào giỏ - Tự động tạo Member nếu cần"""
     data = request.json
     book_id = str(data.get('id'))
     book = Book.query.get(book_id)
 
     if not book:
         return jsonify({'code': 404, 'message': 'Sách không tồn tại!'})
+
+    # Tự động lấy hoặc tạo Member
+    member = dao.get_or_create_member(current_user.id)
+    if not member:
+        return jsonify({'code': 403, 'message': 'Không thể tạo tài khoản mượn sách!'})
 
     cart = session.get('cart', {})
     current_quantity = cart[book_id]['quantity'] if book_id in cart else 0
@@ -369,7 +371,6 @@ def add_to_cart():
 
     session['cart'] = cart
     return jsonify({'code': 200, 'data': dao.cart_stats(cart)})
-
 
 @app.route('/api/update-cart', methods=['POST'])
 @login_required
@@ -438,6 +439,7 @@ def common_context():
 
 @app.route('/book/<int:book_id>')
 def book_detail(book_id):
+    """Trang chi tiết sách - Không cần kiểm tra Member"""
     book = dao.get_book_by_id(book_id)
     if not book:
         return render_template('404.html'), 404
@@ -457,14 +459,17 @@ def book_detail(book_id):
     # Kiểm tra trạng thái sách
     book_status = "Có sẵn" if book.availableCopies > 0 else "Hết sách"
 
+    # Kiểm tra User có thể mượn không (không cần Member)
+    can_borrow = current_user.is_authenticated and current_user.role == UserRole.MEMBER
+
     return render_template(
         'book_detail_new.html',
         book=book,
         related_books=related_books,
         rating_data=rating_data,
-        book_status=book_status
+        book_status=book_status,
+        can_borrow=can_borrow
     )
-
 
 @app.route('/api/rate-book', methods=['POST'])
 @login_required
@@ -519,6 +524,198 @@ def rate_book():
         db.session.rollback()
         return jsonify({'code': 500, 'message': f'Lỗi server: {str(e)}'})
 
+
+@app.route('/api/submit-borrow-request', methods=['POST'])
+@login_required
+def submit_borrow_request():
+    """API gửi yêu cầu mượn sách theo batch"""
+    try:
+        # Tự động lấy hoặc tạo Member
+        member = dao.get_or_create_member(current_user.id)
+        if not member:
+            return jsonify({'code': 403, 'message': 'Không thể tạo tài khoản mượn sách!'})
+
+        # Kiểm tra điều kiện mượn
+        eligibility = dao.check_member_borrow_eligibility(member.id)
+        if not eligibility['eligible']:
+            return jsonify({'code': 400, 'message': eligibility['message']})
+
+        cart = session.get('cart', {})
+        if not cart:
+            return jsonify({'code': 400, 'message': 'Giỏ mượn trống!'})
+
+        # Sử dụng function mới để tạo batch
+        result = dao.submit_batch_borrow_request(member.id, cart)
+
+        if result['success']:
+            session.pop('cart', None)  # Xóa giỏ hàng
+
+            return jsonify({
+                'code': 200,
+                'message': f'Yêu cầu mượn sách đã được tạo (Mã: {result["batch"].batchCode})',
+                'batch_code': result["batch"].batchCode,
+                'total_books': result["batch"].totalBooks
+            })
+        else:
+            return jsonify({'code': 400, 'message': 'Có lỗi xảy ra khi tạo yêu cầu'})
+
+    except Exception as e:
+        return jsonify({'code': 500, 'message': f'Lỗi server: {str(e)}'})
+
+
+# Thêm API mới để lấy danh sách batch
+@app.route('/my-borrow-batches')
+@login_required
+def my_borrow_batches():
+    """Xem danh sách batch yêu cầu mượn"""
+    member = Member.query.filter_by(user_id=current_user.id).first()
+    if not member:
+        flash('Bạn cần đăng ký thành viên!', 'error')
+        return redirect(url_for('index'))
+
+    batches = dao.get_member_borrow_batches(member.id)
+    return render_template('my_borrow_batches.html', batches=batches)
+
+
+@app.route('/batch-detail/<int:batch_id>')
+@login_required
+def batch_detail(batch_id):
+    """Xem chi tiết batch"""
+    member = Member.query.filter_by(user_id=current_user.id).first()
+    if not member:
+        flash('Bạn cần đăng ký thành viên!', 'error')
+        return redirect(url_for('index'))
+
+    batch_details = dao.get_batch_with_details(batch_id)
+    if not batch_details or batch_details['batch'].member_id != member.id:
+        flash('Không tìm thấy batch hoặc không có quyền truy cập!', 'error')
+        return redirect(url_for('my_borrow_batches'))
+
+    return render_template('batch_detail.html', **batch_details)
+
+
+@app.route('/api/check-borrow-eligibility/<int:book_id>')
+@login_required
+def check_borrow_eligibility(book_id):
+    """API kiểm tra điều kiện mượn sách"""
+    try:
+        member = Member.query.filter_by(user_id=current_user.id).first()
+        if not member:
+            return jsonify({'eligible': False, 'message': 'Bạn cần đăng ký thành viên!'})
+
+        book = Book.query.get(book_id)
+        if not book:
+            return jsonify({'eligible': False, 'message': 'Sách không tồn tại!'})
+
+        # Kiểm tra điều kiện member
+        eligibility = dao.check_member_borrow_eligibility(member.id)
+
+        # Thông tin trạng thái sách
+        book_available = book.availableCopies > 0
+
+        return jsonify({
+            'eligible': eligibility['eligible'] and book_available,
+            'member_status': eligibility,
+            'book_status': {
+                'available': book_available,
+                'available_copies': book.availableCopies,
+                'can_wait': not book_available
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'eligible': False, 'message': f'Lỗi server: {str(e)}'})
+
+
+
+
+@app.route('/api/add-to-waiting-list', methods=['POST'])
+@login_required
+def add_to_waiting_list_api():
+    """API thêm vào danh sách chờ"""
+    try:
+        data = request.json
+        book_id = data.get('book_id')
+
+        member = Member.query.filter_by(user_id=current_user.id).first()
+        if not member:
+            return jsonify({'success': False, 'message': 'Bạn cần đăng ký thành viên!'})
+
+        result = dao.add_to_waiting_list(member.id, book_id)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'})
+
+
+
+@app.route('/api/cancel-batch', methods=['POST'])
+@login_required
+def cancel_batch():
+    """API hủy toàn bộ batch yêu cầu mượn sách"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'code': 400,
+                'message': 'Dữ liệu request không hợp lệ'
+            }), 400
+
+        batch_id = data.get('batch_id')
+        if not batch_id:
+            return jsonify({
+                'code': 400,
+                'message': 'Thiếu batch_id'
+            }), 400
+
+        # Import model nếu chưa có
+        from BBOOK.BB.models import BorrowRequestBatch
+
+        # Tìm batch
+        batch = BorrowRequestBatch.query.get(batch_id)
+        if not batch:
+            return jsonify({
+                'code': 404,
+                'message': 'Không tìm thấy yêu cầu mượn!'
+            }), 404
+
+        # Kiểm tra quyền sở hữu
+        member = Member.query.filter_by(user_id=current_user.id).first()
+        if not member or batch.member_id != member.id:
+            return jsonify({
+                'code': 403,
+                'message': 'Không có quyền hủy yêu cầu này!'
+            }), 403
+
+        # Chỉ cho phép hủy batch đang Pending
+        if batch.batchStatus != StatusRequest.PENDING:
+            return jsonify({
+                'code': 400,
+                'message': 'Chỉ có thể hủy yêu cầu đang chờ duyệt!'
+            }), 400
+
+        # Hủy tất cả requests trong batch
+        requests_in_batch = BorrowRequest.query.filter_by(batch_id=batch_id).all()
+
+        for req in requests_in_batch:
+            db.session.delete(req)
+
+        # Xóa batch
+        db.session.delete(batch)
+        db.session.commit()
+
+        return jsonify({
+            'code': 200,
+            'message': f'Đã hủy yêu cầu mượn {batch.batchCode} thành công!',
+            'cancelled_requests': len(requests_in_batch)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'code': 500,
+            'message': f'Lỗi server: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     from BBOOK.BB.admin import *

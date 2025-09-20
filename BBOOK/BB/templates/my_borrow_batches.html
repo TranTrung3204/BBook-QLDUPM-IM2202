@@ -1,0 +1,83 @@
+{% extends 'layout/base.html' %}
+{% block title %}Yêu cầu mượn sách của tôi{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fa fa-list"></i> Yêu cầu mượn sách của tôi</h2>
+
+    {% if batches %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Mã yêu cầu</th>
+                    <th>Ngày gửi</th>
+                    <th>Số lượng sách</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for batch in batches %}
+                <tr>
+                    <td><strong>{{ batch.batchCode }}</strong></td>
+                    <td>{{ batch.requestDate.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <span class="badge badge-info">{{ batch.totalBooks }} cuốn</span>
+                    </td>
+                    <td>
+                        {% if batch.batchStatus.value == 'Pending' %}
+                            <span class="badge badge-warning">Chờ duyệt</span>
+                        {% elif batch.batchStatus.value == 'Approved' %}
+                            <span class="badge badge-success">Đã duyệt</span>
+                        {% else %}
+                            <span class="badge badge-danger">Từ chối</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('batch_detail', batch_id=batch.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="fa fa-eye"></i> Xem chi tiết
+                        </a>
+
+                        {% if batch.batchStatus.value == 'Pending' %}
+                        <button class="btn btn-sm btn-outline-danger ml-1"
+                                onclick="cancelBatch({{ batch.id }})">
+                            <i class="fa fa-times"></i> Hủy
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fa fa-info-circle"></i>
+        Bạn chưa có yêu cầu mượn sách nào.
+        <a href="{{ url_for('index') }}" class="alert-link">Tìm sách để mượn</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function cancelBatch(batchId) {
+    if (confirm('Bạn có chắc muốn hủy yêu cầu này?')) {
+        fetch('/api/cancel-batch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({batch_id: batchId})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 200) {
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

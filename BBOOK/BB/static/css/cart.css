@@ -1,27 +1,8 @@
-/* Add these styles to your CSS file */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-}
+/**********************************/
+/********** CART PAGE CSS ********/
+/**********************************/
 
-.modal-dialog {
-    margin: 50px auto;
-    width: 90%;
-    max-width: 600px;
-}
-
-.modal-content {
-    background-color: #fff;
-    border-radius: 5px;
-    padding: 20px;
-}
-
+/* ===== DELIVERY & FORM STYLES ===== */
 .delivery-options {
     display: flex;
     justify-content: space-around;
@@ -40,13 +21,6 @@
     margin-bottom: 15px;
 }
 
-.form-control {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
 .payment-options {
     margin-top: 10px;
 }
@@ -55,49 +29,306 @@
     margin-bottom: 10px;
 }
 
+/* ===== MODAL FIXES (Bootstrap 4 Compatible) ===== */
+/* Fix z-index issues without overriding Bootstrap core */
+.modal.fade.show {
+    z-index: 1055 !important;
+}
+
+.modal-backdrop.fade.show {
+    z-index: 1040 !important;
+}
+
+/* Ensure modal content is clickable */
+.modal-dialog {
+    z-index: 1056 !important;
+    pointer-events: auto;
+}
+
+.modal-content {
+    position: relative;
+    z-index: 1057 !important;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+/* Modal header improvements */
 .modal-header {
     border-bottom: 1px solid #dee2e6;
-    padding-bottom: 15px;
-    margin-bottom: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    padding: 20px 24px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px 8px 0 0;
 }
 
-.modal-footer {
-    border-top: 1px solid #dee2e6;
-    padding-top: 15px;
-    margin-top: 15px;
-    display: flex;
-    justify-content: flex-end;
+.modal-header .modal-title {
+    color: white;
+    font-weight: 600;
 }
 
-.close {
+.modal-header .close {
+    color: white;
+    opacity: 0.8;
     font-size: 1.5rem;
     font-weight: 700;
     line-height: 1;
-    color: #000;
-    opacity: .5;
     background: none;
     border: none;
     padding: 0;
     cursor: pointer;
+    transition: opacity 0.3s ease;
 }
 
-.btn {
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
+.modal-header .close:hover {
+    opacity: 1;
 }
 
-.btn-primary {
+/* Modal body improvements */
+.modal-body {
+    padding: 24px;
+    z-index: 1058 !important;
+}
+
+/* Modal footer improvements */
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding: 16px 24px 20px;
+    background-color: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+    z-index: 1059 !important;
+}
+
+/* Button improvements */
+.modal-footer .btn {
+    position: relative;
+    z-index: 1060 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin-left: 8px;
+}
+
+.modal-footer .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.modal-footer .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.modal-footer .btn-secondary:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
+
+.modal-footer .btn-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.modal-footer .btn-success:hover {
+    background: linear-gradient(45deg, #218838, #1ea080);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.modal-footer .btn-primary {
     background-color: #007bff;
     border-color: #007bff;
     color: white;
 }
 
-.btn-secondary {
-    background-color: #6c757d;
-    border-color: #6c757d;
+.modal-footer .btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+/* ===== CART SPECIFIC STYLES ===== */
+.cart-page {
+    min-height: 500px;
+}
+
+.cart-item-row {
+    transition: all 0.3s ease;
+}
+
+.cart-item-row:hover {
+    background-color: #f8f9fa;
+}
+
+.qty-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qty-controls .btn {
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qty-controls input {
+    max-width: 60px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin: 0 8px;
+}
+
+/* ===== LOADING & ANIMATIONS ===== */
+.btn.loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.btn.loading .fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVE IMPROVEMENTS ===== */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 20px auto;
+        width: 95%;
+        max-width: 500px;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .modal-footer .btn {
+        margin-bottom: 8px;
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .delivery-options {
+        flex-direction: column;
+    }
+
+    .delivery-option {
+        width: 100%;
+        margin-bottom: 15px;
+    }
+}
+
+/* ===== ACCESSIBILITY IMPROVEMENTS ===== */
+.modal-content:focus {
+    outline: 2px solid #007bff;
+    outline-offset: -2px;
+}
+
+.btn:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* ===== CONFLICT PREVENTION ===== */
+/* SweetAlert2 Z-Index Fix */
+.swal2-container {
+    z-index: 9999 !important;
+}
+
+.swal2-popup {
+    z-index: 10000 !important;
+}
+
+/* Ensure SweetAlert2 buttons are clickable */
+.swal2-actions .swal2-confirm,
+.swal2-actions .swal2-cancel {
+    z-index: 10001 !important;
+    pointer-events: auto !important;
+    position: relative;
+}
+
+/* Fix backdrop issues */
+.swal2-backdrop-show {
+    z-index: 9998 !important;
+}
+
+/* Ensure no conflicts with other Bootstrap components */
+.modal.show .modal-dialog {
+    transform: none !important;
+}
+
+/* Prevent backdrop click issues */
+.modal-backdrop {
+    pointer-events: auto;
+}
+
+.modal-backdrop ~ .modal .modal-dialog {
+    pointer-events: auto;
+}
+
+/* ===== CART SUMMARY STYLES ===== */
+.borrow-request-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 20px;
     color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.borrow-request-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    pointer-events: none;
+}
+
+.borrow-summary {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.submit-borrow-btn {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    border-radius: 25px;
+    padding: 12px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.submit-borrow-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.submit-borrow-btn:active {
+    transform: translateY(0);
 }

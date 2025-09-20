@@ -1,0 +1,157 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">📚 Dashboard Quản lý Mượn Trả</h1>
+        </div>
+    </div>
+
+    <!-- Thống kê cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Yêu cầu chờ duyệt
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.pending_requests }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Sách đã mượn
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.borrowed_books }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Sách quá hạn
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.overdue_books }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Yêu cầu hôm nay
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.today_requests }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-day fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Thao tác nhanh</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <a href="{{ url_for('pendingrequests.index') }}" class="btn btn-warning btn-block">
+                                <i class="fas fa-list"></i> Xem yêu cầu chờ duyệt
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <a href="#" class="btn btn-info btn-block">
+                                <i class="fas fa-search"></i> Tìm kiếm sách
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yêu cầu gần đây -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Yêu cầu mượn gần đây</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_requests %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Mã batch</th>
+                                    <th>Thành viên</th>
+                                    <th>Số sách</th>
+                                    <th>Ngày yêu cầu</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for batch in recent_requests %}
+                                <tr>
+                                    <td><code>{{ batch.batchCode }}</code></td>
+                                    <td>{{ batch.member.user.fullName }}</td>
+                                    <td>{{ batch.totalBooks }} cuốn</td>
+                                    <td>{{ batch.requestDate.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('requestdetail.detail', batch_id=batch.id) }}"
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i> Xem
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Không có yêu cầu nào chờ duyệt.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
