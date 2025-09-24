@@ -26,9 +26,10 @@
                             <p><strong>Số điện thoại:</strong> {{ batch_info.batch.member.user.phone or 'Chưa có' }}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Ngày yêu cầu:</strong> {{ batch_info.batch.requestDate.strftime('%d/%m/%Y') }}</p>
+                            <p><strong>Ngày yêu cầu:</strong> {{ batch_info.batch.requestDate.strftime('%d/%m/%Y') }}
+                            </p>
                             <p><strong>Tổng số sách:</strong> {{ batch_info.batch.totalBooks }}</p>
-                            <p><strong>Trạng thái:</strong> 
+                            <p><strong>Trạng thái:</strong>
                                 <span class="badge badge-warning">Chờ duyệt</span>
                             </p>
                         </div>
@@ -45,34 +46,34 @@
                     <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead>
-                                <tr>
-                                    <th>STT</th>
-                                    <th>Tên sách</th>
-                                    <th>Tác giả</th>
-                                    <th>Còn lại</th>
-                                    <th>Trạng thái</th>
-                                </tr>
+                            <tr>
+                                <th>STT</th>
+                                <th>Tên sách</th>
+                                <th>Tác giả</th>
+                                <th>Còn lại</th>
+                                <th>Trạng thái</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {% for request in batch_info.requests %}
-                                <tr>
-                                    <td>{{ loop.index }}</td>
-                                    <td>{{ request.book.title }}</td>
-                                    <td>{{ request.book.author.name if request.book.author else 'Chưa rõ' }}</td>
-                                    <td>
+                            {% for request in batch_info.requests %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ request.book.title }}</td>
+                                <td>{{ request.book.author.name if request.book.author else 'Chưa rõ' }}</td>
+                                <td>
                                         <span class="badge {{ 'badge-success' if request.book.availableCopies > 0 else 'badge-danger' }}">
                                             {{ request.book.availableCopies }} cuốn
                                         </span>
-                                    </td>
-                                    <td>
-                                        {% if request.book.availableCopies > 0 %}
-                                            <span class="badge badge-success">Có sẵn</span>
-                                        {% else %}
-                                            <span class="badge badge-danger">Hết sách</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                                </td>
+                                <td>
+                                    {% if request.book.availableCopies > 0 %}
+                                    <span class="badge badge-success">Có sẵn</span>
+                                    {% else %}
+                                    <span class="badge badge-danger">Hết sách</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -106,26 +107,26 @@
                 <div class="card-body">
                     <form id="approvalForm">
                         <input type="hidden" id="batchId" value="{{ batch_info.batch.id }}">
-                        
+
                         <!-- Loại duyệt -->
                         <div class="form-group">
                             <label><strong>Quyết định:</strong></label>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="approvalType" 
+                                <input class="form-check-input" type="radio" name="approvalType"
                                        id="approve" value="approve" checked>
                                 <label class="form-check-label" for="approve">
                                     <span class="text-success">✅ Chấp nhận</span>
                                 </label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="approvalType" 
+                                <input class="form-check-input" type="radio" name="approvalType"
                                        id="conditional" value="conditional">
                                 <label class="form-check-label" for="conditional">
                                     <span class="text-warning">⚠️ Duyệt có điều kiện</span>
                                 </label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="approvalType" 
+                                <input class="form-check-input" type="radio" name="approvalType"
                                        id="reject" value="reject">
                                 <label class="form-check-label" for="reject">
                                     <span class="text-danger">❌ Từ chối</span>
@@ -136,25 +137,24 @@
                         <!-- Điều kiện (hiện khi chọn conditional) -->
                         <div id="conditionsGroup" class="form-group" style="display: none;">
                             <label for="conditions">Điều kiện đặc biệt:</label>
-                            <textarea class="form-control" id="conditions" rows="3" 
-                                    placeholder="VD: Thay đổi thời hạn trả, yêu cầu bảo đảm..."></textarea>
-                            
+                            <textarea class="form-control" id="conditions" rows="3"
+                                      placeholder="VD: Thay đổi thời hạn trả, yêu cầu bảo đảm..."></textarea>
+
                             <label for="customReturnDate" class="mt-2">Ngày trả tùy chỉnh:</label>
                             <input type="date" class="form-control" id="customReturnDate">
                         </div>
 
-                        <!-- Lý do từ chối (hiện khi chọn reject) -->
                         <div id="rejectionGroup" class="form-group" style="display: none;">
                             <label for="rejectionReason">Lý do từ chối:</label>
-                            <textarea class="form-control" id="rejectionReason" rows="3" 
-                                    placeholder="Nhập lý do từ chối yêu cầu..." required></textarea>
+                            <textarea class="form-control" id="rejectionReason" rows="3"
+                                      placeholder="Nhập lý do từ chối yêu cầu..."></textarea>
                         </div>
 
                         <!-- Ghi chú -->
                         <div class="form-group">
                             <label for="notes">Ghi chú:</label>
-                            <textarea class="form-control" id="notes" rows="2" 
-                                    placeholder="Ghi chú thêm (tùy chọn)"></textarea>
+                            <textarea class="form-control" id="notes" rows="2"
+                                      placeholder="Ghi chú thêm (tùy chọn)"></textarea>
                         </div>
 
                         <!-- Buttons -->
@@ -173,13 +173,13 @@
                 <div class="card-body">
                     <p><strong>Giới hạn mượn:</strong> {{ batch_info.batch.member.borrowLimit }} cuốn</p>
                     <p><strong>Đang mượn:</strong> {{ violations.current_borrowed or 0 }} cuốn</p>
-                    <p><strong>Mức phạt:</strong> 
+                    <p><strong>Mức phạt:</strong>
                         <span class="badge {{ 'badge-danger' if violations.penalty_level >= 3 else 'badge-success' }}">
                             Level {{ violations.penalty_level }}
                         </span>
                     </p>
                     {% if violations.overdue_count > 0 %}
-                    <p><strong>Sách quá hạn:</strong> 
+                    <p><strong>Sách quá hạn:</strong>
                         <span class="badge badge-danger">{{ violations.overdue_count }} cuốn</span>
                     </p>
                     {% endif %}
@@ -191,78 +191,80 @@
 
 <!-- Scripts -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const approvalTypeRadios = document.querySelectorAll('input[name="approvalType"]');
-    const conditionsGroup = document.getElementById('conditionsGroup');
-    const rejectionGroup = document.getElementById('rejectionGroup');
+    document.addEventListener('DOMContentLoaded', function() {
+        const approvalTypeRadios = document.querySelectorAll('input[name="approvalType"]');
+        const conditionsGroup = document.getElementById('conditionsGroup');
+        const rejectionGroup = document.getElementById('rejectionGroup');
 
-    // Hiển thị/ẩn form groups dựa trên lựa chọn
-    approvalTypeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            conditionsGroup.style.display = this.value === 'conditional' ? 'block' : 'none';
-            rejectionGroup.style.display = this.value === 'reject' ? 'block' : 'none';
+        // Hiển thị/ẩn form groups dựa trên lựa chọn
+        approvalTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                conditionsGroup.style.display = this.value === 'conditional' ? 'block' : 'none';
+                rejectionGroup.style.display = this.value === 'reject' ? 'block' : 'none';
+            });
         });
-    });
 
-    // Xử lý submit form
-    document.getElementById('approvalForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        const approvalType = formData.get('approvalType');
-        
-        // Validation
-        if (approvalType === 'reject' && !document.getElementById('rejectionReason').value) {
+        // Xử lý submit form
+        document.getElementById('approvalForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const approvalType = formData.get('approvalType');
+
+            if (approvalType === 'reject') {
+        if (!rejectionReason.trim()) {
             alert('Vui lòng nhập lý do từ chối!');
+            document.getElementById('rejectionReason').focus();
             return;
         }
+    }
 
-        const requestData = {
-            batch_id: parseInt(document.getElementById('batchId').value),
-            approval_type: approvalType,
-            notes: document.getElementById('notes').value
-        };
+            const requestData = {
+                batch_id: parseInt(document.getElementById('batchId').value),
+                approval_type: approvalType,
+                notes: document.getElementById('notes').value
+            };
 
-        if (approvalType === 'conditional') {
-            requestData.conditions = document.getElementById('conditions').value;
-            if (document.getElementById('customReturnDate').value) {
-                requestData.custom_return_date = document.getElementById('customReturnDate').value;
+            if (approvalType === 'conditional') {
+                requestData.conditions = document.getElementById('conditions').value;
+                if (document.getElementById('customReturnDate').value) {
+                    requestData.custom_return_date = document.getElementById('customReturnDate').value;
+                }
+            } else if (approvalType === 'reject') {
+                requestData.rejection_reason = document.getElementById('rejectionReason').value;
             }
-        } else if (approvalType === 'reject') {
-            requestData.rejection_reason = document.getElementById('rejectionReason').value;
-        }
 
-        // Confirm action
-        const confirmMessage = {
-            'approve': 'Bạn có chắc muốn DUYỆT yêu cầu này?',
-            'conditional': 'Bạn có chắc muốn DUYỆT CÓ ĐIỀU KIỆN yêu cầu này?',
-            'reject': 'Bạn có chắc muốn TỪ CHỐI yêu cầu này?'
-        };
+            // Confirm action
+            const confirmMessage = {
+                'approve': 'Bạn có chắc muốn DUYỆT yêu cầu này?',
+                'conditional': 'Bạn có chắc muốn DUYỆT CÓ ĐIỀU KIỆN yêu cầu này?',
+                'reject': 'Bạn có chắc muốn TỪ CHỐI yêu cầu này?'
+            };
 
-        if (!confirm(confirmMessage[approvalType])) return;
+            if (!confirm(confirmMessage[approvalType])) return;
 
-        // Submit
-        fetch('/admin/requestdetail/process', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Xử lý thành công! ' + data.message);
-                window.location.href = '/admin/pendingrequests/';
-            } else {
-                alert('Lỗi: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('Có lỗi xảy ra: ' + error);
-            console.error('Error:', error);
+            // Submit
+            fetch('/admin/requestdetail/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Xử lý thành công! ' + data.message);
+                    window.location.href = '/admin/pendingrequests/';
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Có lỗi xảy ra: ' + error);
+                console.error('Error:', error);
+            });
         });
     });
-});
 </script>
 {% endblock %}

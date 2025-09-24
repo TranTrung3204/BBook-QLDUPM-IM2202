@@ -844,3 +844,6 @@ def send_approval_notification(batch, approval_type, **kwargs):
     print(f"[EMAIL] Message: {message}")
 
     return True
+
+
+

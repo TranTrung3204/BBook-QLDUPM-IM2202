@@ -479,6 +479,7 @@ def book_detail(book_id):
     if not book:
         return render_template('404.html'), 404
 
+
     # Lấy sách cùng thể loại
     related_books = []
     if book.category_id:
