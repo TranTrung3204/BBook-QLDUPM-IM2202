@@ -1,0 +1,241 @@
+{% extends 'admin/master.html' %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .form-section { display: none; }
+    .form-section.active { display: block; }
+    .book-info { background: #e9ecef; padding: 15px; border-radius: 5px; }
+    .select2-container { width: 100% !important; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h2>Lập Phiếu Nhập Sách</h2>
+
+    <div id="alert-container"></div>
+
+    <div class="card mb-3">
+        <div class="card-header">Kiểm tra mã sách</div>
+        <div class="card-body">
+            <div class="input-group">
+                <input type="number" id="book_id_input" class="form-control" placeholder="Nhập ID sách (bỏ trống nếu là sách mới)">
+                <button class="btn btn-primary" type="button" id="checkBookBtn">Kiểm tra</button>
+            </div>
+        </div>
+    </div>
+
+    <form id="importForm" class="form-section">
+        <input type="hidden" id="book_id_hidden">
+
+        <div id="existingBookInfo" class="form-section">
+            <h5 class="text-success mb-3">✓ Thông tin sách đã tồn tại</h5>
+            <div class="book-info">
+                <p><strong>Tên sách:</strong> <span id="info_title"></span></p>
+                <p><strong>Tác giả:</strong> <span id="info_author"></span></p>
+                <p><strong>Danh mục:</strong> <span id="info_category"></span></p>
+                <p><strong>Năm XB:</strong> <span id="info_year"></span></p>
+            </div>
+        </div>
+
+        <div id="newBookInfo" class="form-section">
+            <h5 class="text-info mb-3">» Nhập thông tin sách mới</h5>
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <label for="title" class="form-label">Tên sách</label>
+                    <input type="text" class="form-control" id="title">
+                </div>
+                <div class="col-md-6">
+                    <label for="author" class="form-label">Tác giả</label>
+                    <select class="form-control" id="author"></select>
+                </div>
+                <div class="col-md-6">
+                    <label for="category" class="form-label">Danh mục</label>
+                    <select class="form-control" id="category"></select>
+                </div>
+                <div class="col-md-6">
+                    <label for="publisher" class="form-label">Nhà xuất bản</label>
+                    <select class="form-control" id="publisher"></select>
+                </div>
+                <div class="col-md-6">
+                    <label for="publication_year" class="form-label">Năm xuất bản</label>
+                    <input type="number" class="form-control" id="publication_year">
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h5 class="mb-3">Thông tin nhập kho</h5>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="quantity" class="form-label">Số lượng nhập</label>
+                <input type="number" class="form-control" id="quantity" min="1" required>
+            </div>
+            <div class="col-md-6">
+                <label for="import_date" class="form-label">Ngày nhập</label>
+                <input type="date" class="form-control" id="import_date" required>
+            </div>
+            <div class="col-md-6">
+                <label for="library_id" class="form-label">Thư viện</label>
+                <select class="form-control" id="library_id" required></select>
+            </div>
+            <div class="col-md-6">
+                <label for="librarian_id" class="form-label">Thủ thư</label>
+                <select class="form-control" id="librarian_id" required></select>
+            </div>
+            <div class="col-md-12">
+                <label for="description" class="form-label">Ghi chú</label>
+                <textarea class="form-control" id="description" rows="3"></textarea>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-success">Lập Phiếu Nhập</button>
+            <button type="button" class="btn btn-secondary" id="resetBtn">Làm mới</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block tail %}
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+    // --- KHỞI TẠO ---
+
+    // Hàm lấy ngày hôm nay theo định dạng YYYY-MM-DD
+    function getTodayString() {
+        return new Date().toISOString().split('T')[0];
+    }
+    // Gán ngày mặc định cho input khi trang tải xong
+    $('#import_date').val(getTodayString());
+
+    // Hàm hiển thị thông báo
+    function showAlert(message, type = 'success') {
+        const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+        $('#alert-container').html(alertHtml);
+    }
+
+    // Khởi tạo Select2
+    function initSelect2(selector, placeholder, tags = false, data = []) {
+        $(selector).select2({ placeholder: placeholder, tags: tags, data: data });
+    }
+
+    // Lấy dữ liệu cho dropdowns
+    $.get('/api/select_data', function(data) {
+        initSelect2('#author', 'Chọn hoặc nhập tên tác giả', true, data.authors);
+        initSelect2('#category', 'Chọn hoặc nhập danh mục', true, data.categories);
+        initSelect2('#publisher', 'Chọn hoặc nhập NXB', true, data.publishers);
+        initSelect2('#library_id', 'Chọn thư viện', false, data.libraries);
+        initSelect2('#librarian_id', 'Chọn thủ thư', false, data.librarians);
+    });
+
+    // Hàm để quản lý thuộc tính 'required' cho các trường sách mới
+    function setNewBookFieldsRequired(isRequired) {
+        $('#title, #author, #category, #publisher, #publication_year').prop('required', isRequired);
+    }
+
+    // --- SỰ KIỆN ---
+
+    // Nút Kiểm tra sách
+    $('#checkBookBtn').on('click', function() {
+        const bookId = $('#book_id_input').val().trim();
+        resetFormState();
+
+        if (!bookId) { // Sách mới
+            $('#newBookInfo, #importForm').addClass('active');
+            $('#book_id_hidden').val('');
+            setNewBookFieldsRequired(true); // BẬT 'required' cho sách mới
+        } else { // Sách cũ, kiểm tra ID
+            $.ajax({
+                url: `/api/check_book/${bookId}`,
+                type: 'GET',
+                success: function(book) {
+                    $('#info_title').text(book.title);
+                    $('#info_author').text(book.author);
+                    $('#info_category').text(book.category);
+                    $('#info_year').text(book.publication_year);
+
+                    $('#book_id_hidden').val(book.id);
+                    $('#existingBookInfo, #importForm').addClass('active');
+                    setNewBookFieldsRequired(false); // TẮT 'required' cho sách cũ
+                },
+                error: function() {
+                    showAlert('Không tìm thấy sách. Vui lòng nhập thông tin sách mới.', 'warning');
+                    $('#newBookInfo, #importForm').addClass('active');
+                    $('#book_id_hidden').val('');
+                    setNewBookFieldsRequired(true); // BẬT 'required' khi không tìm thấy sách
+                }
+            });
+        }
+    });
+
+    // Nút Gửi form
+    $('#importForm').on('submit', function(e) {
+        e.preventDefault();
+
+        const isNewBook = !$('#book_id_hidden').val();
+        let payload = {
+            book_id: $('#book_id_hidden').val(),
+            quantity: $('#quantity').val(),
+            import_date: $('#import_date').val(),
+            library_id: $('#library_id').val(),
+            librarian_id: $('#librarian_id').val(),
+            description: $('#description').val(),
+        };
+
+        if (isNewBook) {
+            payload = {
+                ...payload,
+                title: $('#title').val(),
+                author: $('#author').val(),
+                category: $('#category').val(),
+                publisher: $('#publisher').val(),
+                publication_year: $('#publication_year').val(),
+            };
+        }
+
+        $.ajax({
+            url: '/api/import_records',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            success: function(response) {
+                showAlert(response.message, 'success');
+                resetAll();
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Đã có lỗi xảy ra.';
+                showAlert(errorMsg, 'danger');
+            }
+        });
+    });
+
+    // Nút Làm mới
+    $('#resetBtn').on('click', resetAll);
+
+    // --- HÀM HỖ TRỢ ---
+
+    function resetFormState() {
+        $('#importForm, #newBookInfo, #existingBookInfo').removeClass('active');
+    }
+
+    function resetAll() {
+        $('#importForm')[0].reset();
+        $('#book_id_input').val('');
+        $('.form-control').val(null).trigger('change');
+        $('#import_date').val(getTodayString());
+        setNewBookFieldsRequired(false); // TẮT 'required' khi reset
+        resetFormState();
+    }
+});
+</script>
+{% endblock %}

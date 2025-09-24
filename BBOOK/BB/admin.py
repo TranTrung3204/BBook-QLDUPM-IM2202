@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_login import current_user, logout_user, login_required
@@ -6,7 +6,7 @@ from flask import redirect, flash, url_for, request, render_template, jsonify
 from BBOOK.BB import app, db, dao
 from BBOOK.BB.models import (UserRole, ImportRecord, Book, Librarian, Library,
                              BookCategory, Author, Publisher, BorrowRequest, StatusRequest, Member, WaitingList)
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 
 
 class AuthenticatedModelView(ModelView):
@@ -105,116 +105,203 @@ class LibrarianView(AuthenticatedModelView):
     }
 
 
-class ImportRecordView(BaseView):
-    @expose('/')
+class ImportRecordView(ModelView):
+    can_create = False
+    can_edit = False
+    can_delete = False
+    column_list = ['id', 'book', 'quantity', 'importDate', 'librarian', 'library']
+
+    @expose('/', methods=['GET', 'POST'])
     def index(self):
-        page = request.args.get('page', 1, type=int)
-        per_page = 15
-
-        records = ImportRecord.query.order_by(ImportRecord.importDate.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
-
-        # Dữ liệu cho form thêm mới
-        books = Book.query.order_by(Book.title).all()
+        records = ImportRecord.query.all()
+        libraries = Library.query.all()
         librarians = Librarian.query.all()
-        libraries = Library.query.order_by(Library.address).all()
+        authors = Author.query.all()
+        categories = BookCategory.query.all()
+        publishers = Publisher.query.all()
 
-        return self.render_template('admin/import_records.html',
-                           records=records,
-                           books=books,
-                           librarians=librarians,
-                           libraries=libraries)
+        if request.method == 'POST':
+            book_title = request.form['book_title'].strip()
+            quantity = int(request.form['quantity'])
+            import_date = request.form.get('import_date') or date.today().isoformat()
+            library_id = request.form['library_id']
+            librarian_id = request.form['librarian_id']
+            description = request.form.get('description', '')
 
-    @expose('/add', methods=['POST'])
-    def add_import(self):
-        try:
-            # Lấy dữ liệu từ form
-            book_id = request.form.get('book_id', type=int)
-            quantity = request.form.get('quantity', type=int)
-            librarian_id = request.form.get('librarian_id', type=int)
-            library_id = request.form.get('library_id', type=int)
-            import_date = request.form.get('import_date')
-            description = request.form.get('description', '').strip()
-
-            if not all([book_id, quantity, librarian_id, library_id]):
-                flash("Vui lòng điền đầy đủ thông tin bắt buộc!", "error")
-                return redirect(url_for('.index'))
-
-            if quantity <= 0:
-                flash("Số lượng phải lớn hơn 0!", "error")
-                return redirect(url_for('.index'))
-
-            if import_date:
-                try:
-                    import_date = datetime.strptime(import_date, "%Y-%m-%d").date()
-                except ValueError:
-                    flash("Định dạng ngày không hợp lệ!", "error")
+            # Kiểm tra sách đã tồn tại theo ID nếu có
+            book_id = request.form.get('book_id', '').strip()
+            if book_id:
+                # Sách cũ
+                book = Book.query.get(int(book_id))
+                if not book:
+                    flash('Sách cũ không tồn tại!', 'error')
                     return redirect(url_for('.index'))
+
+                # Cập nhật số lượng có sẵn
+                book.availableCopies += quantity
+
             else:
-                import_date = datetime.now().date()
+                # Sách mới
+                author_id = request.form['author_id']
+                category_id = request.form['category_id']
+                publisher_id = request.form['publisher_id']
 
-            book = Book.query.get(book_id)
-            librarian = Librarian.query.get(librarian_id)
-            library = Library.query.get(library_id)
+                # Xử lý publicationYear: nếu rỗng thì dùng None
+                publication_year = request.form.get('publication_year', '').strip()
+                if publication_year == '':
+                    publication_year = None
+                else:
+                    try:
+                        publication_year = int(publication_year)
+                    except ValueError:
+                        flash('Năm xuất bản không hợp lệ!', 'error')
+                        return redirect(url_for('.index'))
 
-            if not book:
-                flash("Sách không tồn tại!", "error")
-                return redirect(url_for('.index'))
-            if not librarian:
-                flash("Thủ thư không tồn tại!", "error")
-                return redirect(url_for('.index'))
-            if not library:
-                flash("Thư viện không tồn tại!", "error")
-                return redirect(url_for('.index'))
+                book = Book(
+                    title=book_title,
+                    author_id=author_id,
+                    category_id=category_id,
+                    publisher_id=publisher_id,
+                    library_id=library_id,
+                    publicationYear=publication_year,
+                    availableCopies=quantity,
+                    description=description
+                )
+                db.session.add(book)
+                db.session.flush()  # để lấy id book mới
 
-            # Cập nhật số lượng sách có sẵn
-            book.availableCopies += quantity
-
-            # Tạo phiếu nhập mới
+            # Tạo phiếu nhập
             import_record = ImportRecord(
-                book_id=book_id,
+                book_id=book.id,
                 bookTitle=book.title,
                 quantity=quantity,
-                librarian_id=librarian_id,
-                library_id=library_id,
                 importDate=import_date,
-                description=description if description else None
+                library_id=library_id,
+                librarian_id=librarian_id,
+                description=description
             )
-
             db.session.add(import_record)
             db.session.commit()
+            flash('Tạo phiếu nhập thành công!', 'success')
+            return redirect(url_for('.index'))
 
-            flash(f'Nhập sách "{book.title}" thành công! Số lượng: {quantity}', 'success')
+        return self.render(
+            'admin/import_records.html',
+            records=records,
+            libraries=libraries,
+            librarians=librarians,
+            authors=authors,
+            categories=categories,
+            publishers=publishers,
+            date=date.today().isoformat()
+        )
 
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Đã xảy ra lỗi: {str(e)}', 'error')
-
-        return redirect(url_for('.index'))
-
-    @expose('/delete/<int:record_id>')
+    @expose('/delete/<int:record_id>', methods=['POST'])
     def delete_import(self, record_id):
-        try:
-            record = ImportRecord.query.get_or_404(record_id)
-            book = Book.query.get(record.book_id)
+        record = ImportRecord.query.get_or_404(record_id)
+        book = record.book
 
-            if book and book.availableCopies >= record.quantity:
-                book.availableCopies -= record.quantity
-                db.session.delete(record)
-                db.session.commit()
-                flash(f'Đã xóa phiếu nhập sách "{record.bookTitle}"', 'success')
-            else:
-                flash('Không thể xóa phiếu nhập này vì sẽ làm số lượng sách âm!', 'error')
+        # Cập nhật lại số lượng
+        if book and book.availableCopies >= record.quantity:
+            book.availableCopies -= record.quantity
+        if book and book.availableCopies == 0:
+            db.session.delete(book)
 
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Lỗi khi xóa: {str(e)}', 'error')
-
+        db.session.delete(record)
+        db.session.commit()
+        flash('Xóa phiếu thành công!', 'success')
         return redirect(url_for('.index'))
 
-    def is_accessible(self):
-        return current_user.is_authenticated
+
+
+# Thêm các DAO functions hỗ trợ
+def search_books_by_query(query, limit=10):
+    """Tìm kiếm sách theo mã ID hoặc tên"""
+    books_query = Book.query.join(Author, isouter=True).join(BookCategory, isouter=True)
+
+    if query.isdigit():
+        # Tìm theo ID
+        books_query = books_query.filter(Book.id == int(query))
+    else:
+        # Tìm theo tên sách hoặc tác giả
+        books_query = books_query.filter(
+            or_(
+                Book.title.ilike(f'%{query}%'),
+                Author.name.ilike(f'%{query}%')
+            )
+        )
+
+    return books_query.limit(limit).all()
+
+
+def create_book_with_import(book_data, import_data):
+    """Tạo sách mới kèm phiếu nhập"""
+    try:
+        # Tạo sách mới
+        book = Book(
+            title=book_data['title'],
+            author_id=book_data['author_id'],
+            category_id=book_data['category_id'],
+            publisher_id=book_data['publisher_id'],
+            library_id=book_data['library_id'],
+            publicationYear=book_data['publication_year'],
+            availableCopies=import_data['quantity'],
+            description=book_data.get('description')
+        )
+
+        db.session.add(book)
+        db.session.flush()  # Để lấy book.id
+
+        # Tạo phiếu nhập
+        import_record = ImportRecord(
+            book_id=book.id,
+            bookTitle=book.title,
+            quantity=import_data['quantity'],
+            librarian_id=import_data['librarian_id'],
+            library_id=import_data['library_id'],
+            importDate=import_data['import_date'],
+            description=import_data.get('description')
+        )
+
+        db.session.add(import_record)
+        db.session.commit()
+
+        return {'success': True, 'book': book, 'record': import_record}
+
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'error': str(e)}
+
+
+def update_book_quantity_with_import(book_id, import_data):
+    """Cập nhật số lượng sách có sẵn và tạo phiếu nhập"""
+    try:
+        book = Book.query.get(book_id)
+        if not book:
+            return {'success': False, 'error': 'Sách không tồn tại'}
+
+        # Cập nhật số lượng
+        book.availableCopies += import_data['quantity']
+
+        # Tạo phiếu nhập
+        import_record = ImportRecord(
+            book_id=book.id,
+            bookTitle=book.title,
+            quantity=import_data['quantity'],
+            librarian_id=import_data['librarian_id'],
+            library_id=import_data['library_id'],
+            importDate=import_data['import_date'],
+            description=import_data.get('description')
+        )
+
+        db.session.add(import_record)
+        db.session.commit()
+
+        return {'success': True, 'book': book, 'record': import_record}
+
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'error': str(e)}
 
 
 class LogoutView(BaseView):
@@ -233,21 +320,21 @@ class BorrowRequestView(AuthenticatedModelView):
     column_labels = {
         'id': 'ID',
         'member_id': 'Thành viên ID',
-        'book_id': 'Sách ID', 
+        'book_id': 'Sách ID',
         'requestDate': 'Ngày yêu cầu',
         'statusRequest': 'Trạng thái'
     }
-    
+
     column_filters = ('statusRequest', 'requestDate')
 
-    
+
     form_columns = ('statusRequest',)  # Chỉ cho phép sửa trạng thái
-    
+
     column_default_sort = [('requestDate', True)]  # Sắp xếp theo ngày mới nhất
     page_size = 20
-    
+
     def is_accessible(self):
-        return (current_user.is_authenticated and 
+        return (current_user.is_authenticated and
                 current_user.role in [UserRole.ADMIN, UserRole.LIBRARIAN])
 
 
@@ -260,12 +347,12 @@ class MemberView(AuthenticatedModelView):
         'currentBorrowCount': 'Đang mượn',
         'statusPenalty': 'Mức phạt'
     }
-    
+
 
     form_columns = ('user_id', 'borrowLimit', 'currentBorrowCount', 'statusPenalty')
-    
+
     def is_accessible(self):
-        return (current_user.is_authenticated and 
+        return (current_user.is_authenticated and
                 current_user.role in [UserRole.ADMIN, UserRole.LIBRARIAN])
 
 
@@ -274,7 +361,7 @@ class MyAdminIndexView(AdminIndexView):
     def index(self):
         if not current_user.is_authenticated or current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
             return redirect(url_for('admin_login'))
-        
+
         # Get statistics
         stats = {
             'pending_requests': BorrowRequest.query.filter_by(statusRequest=StatusRequest.PENDING).count(),
@@ -282,19 +369,19 @@ class MyAdminIndexView(AdminIndexView):
             'total_books': Book.query.count(),
             'total_members': Member.query.count()
         }
-        
+
         # Get recent requests (last 10)
         recent_requests = BorrowRequest.query.order_by(desc(BorrowRequest.requestDate)).limit(10).all()
-        
+
         # Get popular books (most borrowed)
         popular_books = db.session.query(
             Book,
             func.count(BorrowRequest.id).label('borrow_count')
         ).join(BorrowRequest).group_by(Book.id).order_by(desc('borrow_count')).limit(5).all()
-        
+
         # Get active members
         active_members = Member.query.filter(Member.currentBorrowCount > 0).order_by(desc(Member.currentBorrowCount)).limit(5).all()
-        
+
         return self.render('admin/index.html',
                          stats=stats,
                          recent_requests=recent_requests,
@@ -461,6 +548,8 @@ def bulk_process_requests():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'})
 
+
+
 # VIEWS QUẢN LÝ MƯỢN TRẢ
 class BorrowManagementView(BaseView):
     """Dashboard quản lý mượn trả"""
@@ -618,6 +707,5 @@ admin.add_view(MemberView(Member, db.session, name="Thành viên"))
 admin.add_view(BorrowManagementView(name='Dashboard', endpoint='borrowmanagement', category='Quản lý mượn trả'))
 admin.add_view(PendingRequestsView(name='Yêu cầu chờ duyệt', endpoint='pendingrequests', category='Quản lý mượn trả'))
 admin.add_view(RequestDetailView(name='Chi tiết yêu cầu', endpoint='requestdetail', category='Quản lý mượn trả'))
-
-admin.add_view(ImportRecordView(name="Phiếu nhập sách", endpoint="importrecords"))
+admin.add_view(ImportRecordView(ImportRecord, db.session, name="Phiếu nhập sách", endpoint="importrecords"))
 admin.add_view(LogoutView(name="Đăng xuất"))

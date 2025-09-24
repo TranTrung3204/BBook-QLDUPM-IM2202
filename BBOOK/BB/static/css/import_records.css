@@ -1,0 +1,169 @@
+:root {
+    --primary-color: #4e73df;
+    --primary-hover: #2e59d9;
+    --border-radius: 10px;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+    --danger-color: #e74a3b;
+    --success-color: #1cc88a;
+    --font-color: #333;
+}
+
+/* Khung chính */
+.import-card {
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.import-card .card-header {
+    background: linear-gradient(45deg, var(--primary-color), var(--primary-hover));
+    color: #fff;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    font-size: 1.1rem;
+}
+
+.import-records-container {
+    padding: 20px;
+}
+
+/* Search box */
+.search-section {
+    margin-bottom: 1.5rem;
+}
+
+.search-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.search-icon {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    color: #aaa;
+}
+
+.search-input {
+    padding-left: 35px;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+}
+
+.search-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+/* Kết quả tìm kiếm */
+.search-results {
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+}
+
+.search-results .result-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.search-results .result-item:hover {
+    background: #f1f1f1;
+}
+
+/* Section */
+.form-section {
+    background: #f8f9fc;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin-bottom: 1.5rem;
+}
+
+/* Form row layout (căn thẳng hàng label + input) */
+.form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.form-row .enhanced-form-label {
+    width: 180px; /* cố định chiều rộng label */
+    margin: 0;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.form-row .enhanced-form-control,
+.form-row .enhanced-form-select,
+.form-row textarea {
+    flex: 1; /* input chiếm phần còn lại */
+    min-width: 250px;
+}
+
+/* Label */
+.enhanced-form-label {
+    font-weight: 500;
+    color: var(--font-color);
+    margin-bottom: 0.3rem;
+}
+
+.enhanced-form-label.required::after {
+    content: " *";
+    color: var(--danger-color);
+}
+
+/* Input + Select */
+.enhanced-form-control,
+.enhanced-form-select {
+    border-radius: var(--border-radius);
+    border: 1px solid #ccc;
+    padding: 0.45rem 0.75rem;
+    transition: var(--transition);
+    font-size: 0.95rem;
+}
+
+.enhanced-form-control:focus,
+.enhanced-form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+
+/* Buttons */
+.btn-enhanced {
+    padding: 0.45rem 1.2rem;
+    border-radius: 25px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.btn-primary-enhanced {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+}
+
+.btn-primary-enhanced:hover {
+    background: var(--primary-hover);
+}
+
+.btn-outline-enhanced {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline-enhanced:hover {
+    background: var(--primary-color);
+    color: #fff;
+}
