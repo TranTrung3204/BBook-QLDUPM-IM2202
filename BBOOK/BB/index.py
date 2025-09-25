@@ -89,7 +89,6 @@ def login_google():
 
 
 def handle_google_oauth():
-    """Xử lý thông tin từ Google OAuth - Tự động tạo Member"""
     try:
         resp = google.get("/oauth2/v2/userinfo")
         if not resp.ok:
@@ -153,7 +152,7 @@ def handle_google_oauth():
             return redirect(url_for('index'))
 
     except Exception as e:
-        flash("Lỗi đăng nhập Google", "error")
+        flash("Lỗi đăng nhập Google", "danger")
         return redirect(url_for('user_signin'))
 
 @oauth_authorized.connect_via(google_bp)
@@ -429,16 +428,12 @@ def delete_cart():
         'cart_total_quantity': cart_stats['total_quantity']
     })
 
-
 @app.context_processor
 def common_context():
     cart = session.get('cart', {})
     return {
         "cart_stats": dao.cart_stats(cart)
     }
-
-
-
 
 @bp.route('/api/search_books', methods=['GET'])
 def search_books():
@@ -469,8 +464,6 @@ def search_books():
         })
 
     return jsonify({'books': books_data})
-
-
 
 @app.route('/book/<int:book_id>')
 def book_detail(book_id):

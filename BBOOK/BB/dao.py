@@ -2,7 +2,6 @@ import hashlib
 from datetime import date, timedelta, datetime
 from sqlalchemy import func, and_
 
-
 from BBOOK.BB import db
 from BBOOK.BB.models import BookCategory, Book, User, Author, Publisher, Member, StatusPenalty, WaitingList, \
     StatusRequest, ApprovalType, BorrowRecord, BorrowRequest, UserRole, BorrowRequestBatch
@@ -77,6 +76,7 @@ def get_or_create_member(user_id):
 
     return member
 
+
 def search_books(kw):
     if not kw:
         return []
@@ -109,6 +109,7 @@ def check_login(username, password, role=None):
 
 def get_user_by_id(user_id):
     return User.query.get(user_id)
+
 
 def cart_stats(cart):
     total_quantity = 0
@@ -154,6 +155,7 @@ def get_book_rating(book_id):
 def load_authors():
     """Lấy danh sách tác giả"""
     return Author.query.order_by(Author.name).all()
+
 
 def load_publishers():
     """Lấy danh sách nhà xuất bản"""
@@ -846,4 +848,353 @@ def send_approval_notification(batch, approval_type, **kwargs):
     return True
 
 
+def get_monthly_borrow_statistics(year, month):
+    try:
+        from sqlalchemy import func, extract, desc
+        from BBOOK.BB.models import BorrowRequest, Book, Author, StatusRequest
 
+        # Query lấy top 10 sách được mượn nhiều nhất
+        stats = db.session.query(
+            Book.id,
+            Book.title,
+            Author.name.label('author_name'),
+            func.count(BorrowRequest.id).label('borrow_count')
+        ).join(
+            BorrowRequest, Book.id == BorrowRequest.book_id
+        ).join(
+            Author, Book.author_id == Author.id, isouter=True
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED,
+            extract('year', BorrowRequest.requestDate) == year,
+            extract('month', BorrowRequest.requestDate) == month
+        ).group_by(
+            Book.id, Book.title, Author.name
+        ).order_by(
+            desc('borrow_count')
+        ).limit(10).all()
+
+        # Tính tổng số lượt mượn trong tháng
+        total_borrows = db.session.query(
+            func.count(BorrowRequest.id)
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED,
+            extract('year', BorrowRequest.requestDate) == year,
+            extract('month', BorrowRequest.requestDate) == month
+        ).scalar()
+
+        return {
+            'success': True,
+            'data': [
+                {
+                    'book_id': stat.id,
+                    'title': stat.title,
+                    'author': stat.author_name or 'Chưa rõ',
+                    'borrow_count': stat.borrow_count
+                }
+                for stat in stats
+            ],
+            'total_borrows': total_borrows or 0,
+            'month': month,
+            'year': year
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'data': [],
+            'total_borrows': 0
+        }
+
+
+def get_yearly_borrow_overview(year):
+    try:
+        from sqlalchemy import func, extract
+        from BBOOK.BB.models import BorrowRequest, StatusRequest
+
+        # Query lấy số lượt mượn theo từng tháng
+        monthly_stats = db.session.query(
+            extract('month', BorrowRequest.requestDate).label('month'),
+            func.count(BorrowRequest.id).label('total_borrows')
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED,
+            extract('year', BorrowRequest.requestDate) == year
+        ).group_by(
+            extract('month', BorrowRequest.requestDate)
+        ).order_by('month').all()
+
+        # Tạo mảng 12 tháng với giá trị mặc định là 0
+        months_data = [0] * 12
+        month_names = [
+            'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
+            'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8',
+            'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+        ]
+
+        # Điền dữ liệu thực tế vào
+        for stat in monthly_stats:
+            month_index = int(stat.month) - 1  # Chuyển từ 1-12 về 0-11
+            months_data[month_index] = stat.total_borrows
+
+        return {
+            'success': True,
+            'year': year,
+            'months': month_names,
+            'data': months_data,
+            'total_year_borrows': sum(months_data)
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'year': year,
+            'months': [],
+            'data': [],
+            'total_year_borrows': 0
+        }
+
+
+def get_top_books_all_time(limit=10):
+
+    try:
+        from sqlalchemy import func, desc
+        from BBOOK.BB.models import BorrowRequest, Book, Author, StatusRequest
+
+        top_books = db.session.query(
+            Book.id,
+            Book.title,
+            Author.name.label('author_name'),
+            func.count(BorrowRequest.id).label('total_borrows')
+        ).join(
+            BorrowRequest, Book.id == BorrowRequest.book_id
+        ).join(
+            Author, Book.author_id == Author.id, isouter=True
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED
+        ).group_by(
+            Book.id, Book.title, Author.name
+        ).order_by(
+            desc('total_borrows')
+        ).limit(limit).all()
+
+        return [
+            {
+                'book_id': book.id,
+                'title': book.title,
+                'author': book.author_name or 'Chưa rõ',
+                'total_borrows': book.total_borrows
+            }
+            for book in top_books
+        ]
+
+    except Exception as e:
+        print(f"Error in get_top_books_all_time: {str(e)}")
+        return []
+
+
+def get_borrow_stats_summary():
+
+    try:
+        from datetime import date, timedelta
+        from sqlalchemy import func
+        from BBOOK.BB.models import BorrowRequest, Book, Member, StatusRequest
+
+        today = date.today()
+        this_month_start = today.replace(day=1)
+        last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+
+        # Tổng số yêu cầu đã được duyệt
+        total_approved = db.session.query(func.count(BorrowRequest.id)).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED
+        ).scalar() or 0
+
+        # Số yêu cầu tháng này
+        this_month_requests = db.session.query(func.count(BorrowRequest.id)).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED,
+            BorrowRequest.requestDate >= this_month_start
+        ).scalar() or 0
+
+        # Số yêu cầu tháng trước
+        last_month_requests = db.session.query(func.count(BorrowRequest.id)).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED,
+            BorrowRequest.requestDate >= last_month_start,
+            BorrowRequest.requestDate < this_month_start
+        ).scalar() or 0
+
+        # Tính phần trăm thay đổi
+        if last_month_requests > 0:
+            change_percent = ((this_month_requests - last_month_requests) / last_month_requests) * 100
+        else:
+            change_percent = 0 if this_month_requests == 0 else 100
+
+        # Tổng số sách khác nhau đã được mượn
+        unique_books_borrowed = db.session.query(
+            func.count(func.distinct(BorrowRequest.book_id))
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED
+        ).scalar() or 0
+
+        # Tổng số member đã từng mượn sách
+        active_members = db.session.query(
+            func.count(func.distinct(BorrowRequest.member_id))
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED
+        ).scalar() or 0
+
+        return {
+            'total_approved_requests': total_approved,
+            'this_month_requests': this_month_requests,
+            'last_month_requests': last_month_requests,
+            'change_percent': round(change_percent, 1),
+            'unique_books_borrowed': unique_books_borrowed,
+            'active_members': active_members,
+            'change_direction': 'increase' if change_percent > 0 else 'decrease' if change_percent < 0 else 'stable'
+        }
+
+    except Exception as e:
+        return {
+            'total_approved_requests': 0,
+            'this_month_requests': 0,
+            'last_month_requests': 0,
+            'change_percent': 0,
+            'unique_books_borrowed': 0,
+            'active_members': 0,
+            'change_direction': 'stable',
+            'error': str(e)
+        }
+
+
+def get_available_statistics_years():
+
+    try:
+        from sqlalchemy import func, extract, desc
+        from BBOOK.BB.models import BorrowRequest, StatusRequest
+
+        years = db.session.query(
+            extract('year', BorrowRequest.requestDate).label('year')
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED
+        ).distinct().order_by(desc('year')).all()
+
+        return [int(year.year) for year in years] if years else [datetime.now().year]
+
+    except Exception as e:
+        print(f"Error getting available years: {str(e)}")
+        return [datetime.now().year]
+
+
+def get_book_borrow_trend(book_id, months=12):
+
+    try:
+        from datetime import date, timedelta
+        from sqlalchemy import func, extract, desc
+        from BBOOK.BB.models import BorrowRequest, Book, StatusRequest
+
+        # Tính ngày bắt đầu
+        end_date = date.today()
+        start_date = end_date.replace(day=1) - timedelta(days=months * 30)  # Ước tính
+
+        # Query dữ liệu theo tháng
+        trend_data = db.session.query(
+            extract('year', BorrowRequest.requestDate).label('year'),
+            extract('month', BorrowRequest.requestDate).label('month'),
+            func.count(BorrowRequest.id).label('borrow_count')
+        ).filter(
+            BorrowRequest.book_id == book_id,
+            BorrowRequest.statusRequest == StatusRequest.APPROVED,
+            BorrowRequest.requestDate >= start_date
+        ).group_by(
+            extract('year', BorrowRequest.requestDate),
+            extract('month', BorrowRequest.requestDate)
+        ).order_by('year', 'month').all()
+
+        # Lấy thông tin sách
+        book = Book.query.get(book_id)
+
+        return {
+            'success': True,
+            'book_title': book.title if book else 'Unknown',
+            'book_id': book_id,
+            'trend_data': [
+                {
+                    'year': int(data.year),
+                    'month': int(data.month),
+                    'month_name': f"{int(data.month)}/{int(data.year)}",
+                    'borrow_count': data.borrow_count
+                }
+                for data in trend_data
+            ],
+            'total_period_borrows': sum(data.borrow_count for data in trend_data)
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'book_id': book_id,
+            'trend_data': [],
+            'total_period_borrows': 0
+        }
+
+
+def export_borrow_statistics_to_csv(year=None, month=None):
+
+    try:
+        import csv
+        import tempfile
+        import os
+        from datetime import datetime
+        from sqlalchemy import func, extract
+        from BBOOK.BB.models import BorrowRequest, Book, Author, StatusRequest
+
+        # Tạo query cơ bản
+        query = db.session.query(
+            Book.title,
+            Author.name.label('author_name'),
+            extract('year', BorrowRequest.requestDate).label('year'),
+            extract('month', BorrowRequest.requestDate).label('month'),
+            func.count(BorrowRequest.id).label('borrow_count')
+        ).join(
+            BorrowRequest, Book.id == BorrowRequest.book_id
+        ).join(
+            Author, Book.author_id == Author.id, isouter=True
+        ).filter(
+            BorrowRequest.statusRequest == StatusRequest.APPROVED
+        )
+
+        # Áp dụng filter
+        if year:
+            query = query.filter(extract('year', BorrowRequest.requestDate) == year)
+        if month:
+            query = query.filter(extract('month', BorrowRequest.requestDate) == month)
+
+        query = query.group_by(
+            Book.id, Book.title, Author.name,
+            extract('year', BorrowRequest.requestDate),
+            extract('month', BorrowRequest.requestDate)
+        ).order_by('year', 'month', func.count(BorrowRequest.id).desc())
+
+        results = query.all()
+
+        # Tạo file CSV tạm
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8')
+
+        writer = csv.writer(temp_file)
+        writer.writerow(['Tên sách', 'Tác giả', 'Năm', 'Tháng', 'Số lượt mượn'])
+
+        for row in results:
+            writer.writerow([
+                row.title,
+                row.author_name or 'Chưa rõ',
+                int(row.year),
+                int(row.month),
+                row.borrow_count
+            ])
+
+        temp_file.close()
+        return temp_file.name
+
+    except Exception as e:
+        print(f"Error exporting to CSV: {str(e)}")
+        return None

@@ -4,9 +4,10 @@ from flask_admin.contrib.sqla import ModelView
 from flask_login import current_user, logout_user, login_required
 from flask import redirect, flash, url_for, request, render_template, jsonify
 from BBOOK.BB import app, db, dao
+from BBOOK.BB.dao import get_borrow_stats_summary
 from BBOOK.BB.models import (UserRole, ImportRecord, Book, Librarian, Library,
                              BookCategory, Author, Publisher, BorrowRequest, StatusRequest, Member, WaitingList)
-from sqlalchemy import func, desc, or_
+from sqlalchemy import func, desc, or_, extract
 
 
 class AuthenticatedModelView(ModelView):
@@ -697,6 +698,134 @@ class BorrowManagementAPI(BaseView):
         stats = dao.get_borrow_management_stats()
         return jsonify(stats)
 
+
+class BorrowStatisticsView(BaseView):
+    """View báo cáo thống kê mượn sách"""
+
+    @expose('/')
+    def index(self):
+        if not current_user.is_authenticated or current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+            return redirect(url_for('admin_login'))
+
+        # Lấy danh sách năm có dữ liệu
+        years = dao.get_available_statistics_years()
+
+        # Lấy tổng quan thống kê
+        summary_stats = dao.get_borrow_stats_summary()
+
+        return self.render(
+            'admin/borrow_statistics.html',
+            years=years,
+            current_year=datetime.now().year,
+            current_month=datetime.now().month,
+            summary_stats=summary_stats
+        )
+
+    @expose('/api/monthly-stats')
+    def monthly_stats_api(self):
+        """API lấy thống kê theo tháng"""
+        if not current_user.is_authenticated or current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        try:
+            year = request.args.get('year', datetime.now().year, type=int)
+            month = request.args.get('month', datetime.now().month, type=int)
+
+            # Sử dụng function từ dao.py
+            stats = dao.get_monthly_borrow_statistics(year, month)
+
+            if not stats['success']:
+                return jsonify({'error': stats.get('error', 'Unknown error')}), 500
+
+            # Chuẩn bị dữ liệu cho Chart.js
+            data = {
+                'labels': [f"{item['title']} ({item['author']})" for item in stats['data']],
+                'data': [item['borrow_count'] for item in stats['data']],
+                'total_requests': stats['total_borrows']
+            }
+
+            return jsonify(data)
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @expose('/api/yearly-overview')
+    def yearly_overview_api(self):
+        """API lấy tổng quan theo năm"""
+        if not current_user.is_authenticated or current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        try:
+            year = request.args.get('year', datetime.now().year, type=int)
+
+            # Sử dụng function từ dao.py
+            overview = dao.get_yearly_borrow_overview(year)
+
+            if not overview['success']:
+                return jsonify({'error': overview.get('error', 'Unknown error')}), 500
+
+            data = {
+                'labels': ['T1', 'T2', 'T3', 'T4', 'T5', 'T6',
+                           'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
+                'data': overview['data'],
+                'year': year
+            }
+
+            return jsonify(data)
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @expose('/export-csv')
+    def export_csv(self):
+        """Xuất dữ liệu thống kê ra file CSV"""
+        if not current_user.is_authenticated or current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+            return redirect(url_for('admin_login'))
+
+        try:
+            year = request.args.get('year', type=int)
+            month = request.args.get('month', type=int)
+
+            # Xuất CSV
+            csv_file_path = dao.export_borrow_statistics_to_csv(year, month)
+
+            if csv_file_path:
+                from flask import send_file
+                import os
+
+                # Tạo tên file với thời gian
+                filename_suffix = ""
+                if year and month:
+                    filename_suffix = f"_{year}_{month:02d}"
+                elif year:
+                    filename_suffix = f"_{year}"
+
+                filename = f"borrow_statistics{filename_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+                response = send_file(
+                    csv_file_path,
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='text/csv'
+                )
+
+                # Xóa file tạm sau khi gửi
+                @response.call_on_close
+                def remove_temp_file():
+                    try:
+                        os.unlink(csv_file_path)
+                    except:
+                        pass
+
+                return response
+            else:
+                flash('Lỗi khi xuất dữ liệu!', 'error')
+                return redirect(url_for('borrowstatistics.index'))
+
+        except Exception as e:
+            flash(f'Lỗi xuất CSV: {str(e)}', 'error')
+            return redirect(url_for('borrowstatistics.index'))
+
 admin.add_view(BookView(Book, db.session, name="Sách"))
 admin.add_view(BookCategoryView(BookCategory, db.session, name="Loại sách"))
 admin.add_view(AuthorView(Author, db.session, name="Tác giả"))
@@ -708,4 +837,5 @@ admin.add_view(BorrowManagementView(name='Dashboard', endpoint='borrowmanagement
 admin.add_view(PendingRequestsView(name='Yêu cầu chờ duyệt', endpoint='pendingrequests', category='Quản lý mượn trả'))
 admin.add_view(RequestDetailView(name='Chi tiết yêu cầu', endpoint='requestdetail', category='Quản lý mượn trả'))
 admin.add_view(ImportRecordView(ImportRecord, db.session, name="Phiếu nhập sách", endpoint="importrecords"))
+admin.add_view(BorrowStatisticsView(name='Báo cáo thống kê',endpoint='borrowstatistics', category='Báo cáo'))
 admin.add_view(LogoutView(name="Đăng xuất"))
