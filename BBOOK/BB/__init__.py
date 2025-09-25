@@ -6,6 +6,8 @@ from flask_dance.contrib.google import make_google_blueprint
 from flask_sqlalchemy import SQLAlchemy
 from urllib.parse import quote
 
+
+
 # Cho phép chạy HTTP khi dev
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 #
@@ -35,6 +37,7 @@ google_bp = make_google_blueprint(
                     "https://www.googleapis.com/auth/userinfo.email", ])
 
 app.register_blueprint(google_bp, url_prefix="/login")
+
 
 db = SQLAlchemy(app=app)
 #123
