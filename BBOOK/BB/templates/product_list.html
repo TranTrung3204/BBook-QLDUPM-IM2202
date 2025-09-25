@@ -3,7 +3,7 @@
 {% block title %}Danh sách sách{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/product-list.css') }}">
+<link rel="stylesheet" href="{{ url_for(request.endpoint, page=p, kw=kw, category_id=category_id, author_id=author_id, publisher_id=publisher_id, year=year) }}">
 
 <!-- Breadcrumb Start -->
 <div class="breadcrumb-wrap">

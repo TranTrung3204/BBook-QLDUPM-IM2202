@@ -31,6 +31,9 @@
                                 {{ current_user.fullName }}
                             </a>
                             <a href="{{ url_for('user_signout') }}" class="dropdown-item">Logout</a>
+                            <a href="{{ url_for('my_borrow_batches') }}" class="dropdown-item">
+                                <i class="fa fa-list mr-1"></i>Yêu cầu mượn của tôi
+                            </a>
                             {%else%}
                             <a href="{{ url_for('user_signin') }}" class="dropdown-item">Login</a>
                             <a href="{{ url_for('user_register') }}" class="dropdown-item">Register</a>
@@ -61,24 +64,12 @@
                 <div class="navbar-nav m-auto">
                     <a href="/" class="nav-item nav-link active">Trang Chủ</a>
                     <a href="{{ url_for('product_list') }}" class="nav-item nav-link">Sách</a>
-<!--                    <div class="nav-item dropdown">-->
-<!--                        <a href="#" class="nav-link dropdown-toggle" data-toggle="dropdown">-->
-<!--                            <i class="fas fa-book-open me-2"></i>Loại Sách</a>-->
-<!--                        <div class="dropdown-menu category-menu">-->
-<!--                            <div class="category-header">-->
-<!--                                <h6 class="text-center">Danh Mục Sách</h6>-->
-<!--                            </div>-->
-<!--                            <div class="category-list">-->
-<!--                                {% for c in categories %}-->
-<!--                                <a href="{{ url_for('filter_by_category', category_id=c.id) }}"-->
-<!--                                   class="dropdown-item category-item">-->
-<!--                                    <span class="category-name">{{ c.name }}</span>-->
-<!--                                    <span class="category-count">({{ c.product_count }})</span>-->
-<!--                                </a>-->
-<!--                                {% endfor %}-->
-<!--                            </div>-->
-<!--                        </div>-->
-<!--                    </div>-->
+                    {% if current_user.is_authenticated and current_user.role.name == 'MEMBER' %}
+                    <!-- Thay đổi link trong menu -->
+                    <a class="nav-link" href="{{ url_for('my_borrow_batches') }}">
+                        <i class="fa fa-list"></i> Yêu cầu mượn sách
+                    </a>
+                    {% endif %}
                     <a href="{{ url_for('contact') }}" class="nav-item nav-link">Liên hệ</a>
                 </div>
             </div>

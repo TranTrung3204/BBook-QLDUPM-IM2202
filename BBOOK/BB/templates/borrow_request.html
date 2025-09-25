@@ -1,0 +1,23 @@
+{% extends "layout/base.html" %}
+
+{% block title %}Đăng ký mượn sách - {{ book.title }}{% endblock %}
+
+### 3.3 Cập nhật `cart.html`
+Thêm nút "Đăng ký mượn" vào giỏ:
+```html
+<!-- Trong phần tổng kết giỏ hàng -->
+<div class="cart-summary">
+    <h5>Tổng quan giỏ mượn</h5>
+    <p>Số lượng: <span class="badge badge-primary">{{ stats.total_quantity }}</span></p>
+
+    {% if cart %}
+    <div class="mt-3">
+        <a href="/borrow-request-cart" class="btn btn-success btn-block">
+            <i class="fa fa-paper-plane"></i> Đăng ký mượn tất cả
+        </a>
+        <button class="btn btn-outline-danger btn-block mt-2" onclick="clearCart()">
+            <i class="fa fa-trash"></i> Xóa tất cả
+        </button>
+    </div>
+    {% endif %}
+</div>

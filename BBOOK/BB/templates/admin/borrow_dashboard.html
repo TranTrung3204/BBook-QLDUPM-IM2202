@@ -1,0 +1,122 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard Quản lý Mượn trả{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- B2: Dashboard với thống kê -->
+    <div class="row">
+        <div class="col-12">
+            <h2><i class="fa fa-dashboard"></i> Quản lý Mượn trả</h2>
+        </div>
+    </div>
+
+    <!-- Thống kê cards -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.pending_requests }}</h4>
+                            <p>Yêu cầu chờ duyệt</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fa fa-clock-o fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('pending_requests') }}" class="text-white">
+                        Xem chi tiết <i class="fa fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.borrowed_books }}</h4>
+                            <p>Sách đã mượn</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fa fa-book fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.overdue_books }}</h4>
+                            <p>Sách quá hạn</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fa fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.today_requests }}</h4>
+                            <p>Yêu cầu hôm nay</p>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fa fa-calendar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu chính -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Chức năng chính</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <a href="{{ url_for('pending_requests') }}" class="btn btn-warning btn-lg btn-block">
+                                <i class="fa fa-clock-o"></i><br>
+                                Yêu cầu chờ duyệt<br>
+                                <small>({{ stats.pending_requests }} yêu cầu)</small>
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="/admin/borrowed-books" class="btn btn-success btn-lg btn-block">
+                                <i class="fa fa-book"></i><br>
+                                Sách đang mượn<br>
+                                <small>({{ stats.borrowed_books }} cuốn)</small>
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="/admin/overdue-books" class="btn btn-danger btn-lg btn-block">
+                                <i class="fa fa-exclamation-triangle"></i><br>
+                                Sách quá hạn<br>
+                                <small>({{ stats.overdue_books }} cuốn)</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

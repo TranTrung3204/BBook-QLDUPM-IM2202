@@ -1,0 +1,84 @@
+{% extends 'layout/base.html' %}
+{% block title %}Chi tiết yêu cầu {{ batch.batchCode }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fa fa-file-text"></i> Chi tiết yêu cầu {{ batch.batchCode }}</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Thông tin batch -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Mã yêu cầu:</strong> {{ batch.batchCode }}</p>
+                            <p><strong>Ngày gửi:</strong> {{ batch.requestDate.strftime('%d/%m/%Y') }}</p>
+                            <p><strong>Tổng số sách:</strong> {{ batch.totalBooks }} cuốn</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Trạng thái:</strong>
+                                {% if batch.batchStatus.value == 'Pending' %}
+                                    <span class="badge badge-warning">Chờ duyệt</span>
+                                {% elif batch.batchStatus.value == 'Approved' %}
+                                    <span class="badge badge-success">Đã duyệt</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Từ chối</span>
+                                {% endif %}
+                            </p>
+                            {% if batch.approvedDate %}
+                            <p><strong>Ngày xử lý:</strong> {{ batch.approvedDate.strftime('%d/%m/%Y') }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Danh sách sách -->
+                    <h5>Danh sách sách:</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Tên sách</th>
+                                    <th>Tác giả</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in requests %}
+                                <tr>
+                                    <td>{{ request.book.title }}</td>
+                                    <td>{{ request.book.author.name if request.book.author else 'Chưa rõ' }}</td>
+                                    <td>
+                                        {% if request.statusRequest.value == 'Pending' %}
+                                            <span class="badge badge-warning">Chờ duyệt</span>
+                                        {% elif request.statusRequest.value == 'Approved' %}
+                                            <span class="badge badge-success">Đã duyệt</span>
+                                        {% else %}
+                                            <span class="badge badge-danger">Từ chối</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Ghi chú -->
+                    {% if batch.notes %}
+                    <div class="mt-3">
+                        <h6>Ghi chú từ thủ thư:</h6>
+                        <div class="alert alert-info">{{ batch.notes }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('my_borrow_batches') }}" class="btn btn-secondary">
+                        <i class="fa fa-arrow-left"></i> Quay lại
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

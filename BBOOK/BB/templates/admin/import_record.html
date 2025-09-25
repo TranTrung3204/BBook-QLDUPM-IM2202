@@ -13,15 +13,15 @@
         <div class="card-body">
             <form method="POST" action="{{ url_for('importrecords.add_import') }}">
                 <div class="mb-3">
-                    <label for="book_id" class="form-label">Chọn sách</label>
-                    <select class="form-select" id="book_id" name="book_id" required>
-                        <option value="">-- Chọn sách --</option>
-                        {% for book in books %}
-                        <option value="{{ book.id }}">{{ book.title }}</option>
-                        {% endfor %}
-                    </select>
+                    <label for="book_name" class="form-label">Tên sách</label>
+                    <input
+                            type="text"
+                            class="form-control"
+                            id="book_name"
+                            name="book_name"
+                            placeholder="Nhập tên sách"
+                            required>
                 </div>
-
                 <div class="mb-3">
                     <label for="quantity" class="form-label">Số lượng</label>
                     <input type="number" class="form-control" id="quantity" name="quantity" min="1" required>
@@ -70,28 +70,28 @@
         <div class="card-body">
             <table class="table table-bordered table-hover">
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Sách</th>
-                        <th>Số lượng</th>
-                        <th>Thủ thư</th>
-                        <th>Thư viện</th>
-                        <th>Ngày nhập</th>
-                        <th>Ghi chú</th>
-                    </tr>
+                <tr>
+                    <th>ID</th>
+                    <th>Sách</th>
+                    <th>Số lượng</th>
+                    <th>Thủ thư</th>
+                    <th>Thư viện</th>
+                    <th>Ngày nhập</th>
+                    <th>Ghi chú</th>
+                </tr>
                 </thead>
                 <tbody>
-                    {% for record in records %}
-                    <tr>
-                        <td>{{ record.id }}</td>
-                        <td>{{ record.bookTitle }}</td>
-                        <td>{{ record.quantity }}</td>
-                        <td>{{ record.librarian.user.fullName }}</td>
-                        <td>{{ record.library.address }}</td>
-                        <td>{{ record.importDate.strftime('%Y-%m-%d') }}</td>
-                        <td>{{ record.description }}</td>
-                    </tr>
-                    {% endfor %}
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.id }}</td>
+                    <td>{{ record.bookTitle }}</td>
+                    <td>{{ record.quantity }}</td>
+                    <td>{{ record.librarian.user.fullName }}</td>
+                    <td>{{ record.library.address }}</td>
+                    <td>{{ record.importDate.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ record.description }}</td>
+                </tr>
+                {% endfor %}
                 </tbody>
             </table>
         </div>

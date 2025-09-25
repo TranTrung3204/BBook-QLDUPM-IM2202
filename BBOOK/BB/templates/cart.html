@@ -3,6 +3,53 @@
 
 {% block css %}
 <link href="{{ url_for('static', filename='css/cart.css') }}" rel="stylesheet">
+<style>
+    /* Style cho nút gửi yêu cầu mượn */
+    .borrow-request-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+        color: white;
+    }
+    
+    .borrow-summary {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .submit-borrow-btn {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+    
+    .submit-borrow-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+    
+    .cart-empty {
+        text-align: center;
+        padding: 60px 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        margin: 20px 0;
+    }
+    
+    .cart-empty i {
+        font-size: 64px;
+        color: #6c757d;
+        margin-bottom: 20px;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -11,8 +58,13 @@
     <div class="container">
         <div class="row">
             <div class="col-md-12">
+                <h2 class="mb-4">
+                    <i class="fa fa-shopping-cart"></i> Giỏ mượn sách của tôi
+                </h2>
+
+                {% if session.get('cart') and session.get('cart')|length > 0 %}
+                <!-- Bảng hiển thị sách trong giỏ -->
                 <div class="table-responsive">
-                    {% if session.get('cart') %}
                     <table class="table table-bordered">
                         <thead class="thead-dark">
                         <tr>
@@ -20,88 +72,239 @@
                             <th>Tên sách</th>
                             <th>Tác giả</th>
                             <th>Số lượng</th>
-                            <th>Xóa</th>
+                            <th>Thao tác</th>
                         </tr>
                         </thead>
                         <tbody class="align-middle">
                         {% for c in session.get('cart', {}).values() %}
-                        <tr id="book-{{ c.get('id', '') }}">
-                            <td>{{ c.get('id', '') }}</td>
+                        <tr id="book-{{ c.get('id', '') }}" data-id="{{ c.get('id', '') }}">
+                            <td><strong>{{ c.get('id', '') }}</strong></td>
                             <td>{{ c.get('title', '') }}</td>
-                            <td>{{ c.get('author', '') }}</td>
+                            <td>{{ c.get('author', 'Chưa rõ') }}</td>
                             <td>
-                                <div class="qty">
-                                    <button class="btn-minus" onclick="updateQuantity('{{ c.get('id', '') }}', -1)">
+                                <div class="qty d-flex align-items-center">
+                                    <button class="btn btn-outline-secondary btn-sm btn-minus" type="button">
                                         <i class="fa fa-minus"></i>
                                     </button>
                                     <input type="text" id="quantity-{{ c.get('id', '') }}"
-                                           value="{{ c.get('quantity', 0) }}" readonly>
-                                    <button class="btn-plus" onclick="updateQuantity('{{ c.get('id', '') }}', 1)">
+                                           class="form-control text-center mx-2"
+                                           value="{{ c.get('quantity', 0) }}"
+                                           readonly style="width: 60px;">
+                                    <button class="btn btn-outline-secondary btn-sm btn-plus" type="button">
                                         <i class="fa fa-plus"></i>
                                     </button>
                                 </div>
                             </td>
                             <td>
-                                <button onclick="deleteFromCart('{{ c.get('id', '') }}')" class="btn btn-danger btn-sm">
-                                    <i class="fa fa-trash"></i>
+                                <button class="btn btn-danger btn-sm" onclick="deleteFromCart('{{ c.get('id', '') }}')">
+                                    <i class="fa fa-trash"></i> Xóa
                                 </button>
                             </td>
                         </tr>
                         {% endfor %}
                         </tbody>
                     </table>
-                    {% else %}
-                    <h4>Không có sách nào trong giỏ mượn!</h4>
-                    {% endif %}
                 </div>
-            </div>
-        </div>
 
-        {% if session.get('cart') %}
-        <div class="row mt-4">
-            <div class="col-md-6 offset-md-6">
-                <div class="cart-summary">
-                    <div class="cart-content">
-                        <h3>Thông tin mượn sách</h3>
-                        <p>Tổng số sách: <span>{{ stats.total_quantity }}</span></p>
-                    </div>
-                    <div class="cart-btn">
-                        <button class="btn btn-success" onclick="confirmBorrow()">Xác nhận mượn</button>
+                <!-- Phần gửi yêu cầu mượn sách -->
+                <div class="row">
+                    <div class="col-md-8 offset-md-2">
+                        <div class="borrow-request-section">
+                            <h4 class="mb-3">
+                                <i class="fa fa-paper-plane"></i> Thông tin yêu cầu mượn
+                            </h4>
+
+                            <div class="borrow-summary">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Tổng số sách:</strong> {{ stats.total_quantity }} cuốn</p>
+                                        <p class="mb-1"><strong>Thành viên:</strong> {{ current_user.fullName }}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Ngày yêu cầu:</strong> Hôm nay</p>
+                                        <p class="mb-1"><strong>Trạng thái:</strong> <span class="badge badge-warning">Chờ duyệt</span></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-center">
+                                <button id="submitBorrowRequest" class="btn btn-light submit-borrow-btn">
+                                    <i class="fa fa-paper-plane mr-2"></i>
+                                    GỬI YÊU CẦU MƯỢN SÁCH
+                                </button>
+                            </div>
+
+                            <div class="mt-3">
+                                <small>
+                                    <i class="fa fa-info-circle"></i>
+                                    <strong>Lưu ý:</strong> Sau khi gửi yêu cầu, bạn cần chờ thủ thư duyệt.
+                                    Bạn có thể theo dõi trạng thái tại <a href="/my-borrow-batches" class="text-light"><u>đây</u></a>.
+                                </small>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                {% else %}
+                <!-- Giỏ mượn trống -->
+                <div class="cart-empty">
+                    <i class="fa fa-shopping-cart"></i>
+                    <h4>Giỏ mượn sách của bạn đang trống!</h4>
+                    <p class="text-muted">Hãy tìm kiếm và thêm những cuốn sách bạn muốn mượn vào giỏ.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fa fa-search mr-2"></i>Tìm kiếm sách
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
 </div>
 <!-- Cart End -->
+
+<!-- Modal xác nhận -->
+<div class="modal fade" id="confirmBorrowModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Xác nhận gửi yêu cầu mượn sách</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Content -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fa fa-times"></i> Hủy
+                </button>
+                <button type="button" id="confirmSubmitBtn" class="btn btn-success">
+                    <i class="fa fa-check"></i> Xác nhận gửi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/cart.js') }}"></script>
 <script>
-    function confirmBorrow() {
-        Swal.fire({
-            title: 'Xác nhận mượn sách',
-            text: "Bạn có chắc chắn muốn mượn số sách này không?",
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Xác nhận',
-            cancelButtonText: 'Hủy'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                fetch('/borrow/confirm', {
-                    method: 'POST'
-                }).then(res => res.json())
-                  .then(data => {
-                    if (data.code === 200) {
-                        Swal.fire('Thành công!', data.message, 'success')
-                            .then(() => window.location.href = '/');
-                    } else {
-                        Swal.fire('Lỗi!', data.message, 'error');
-                    }
-                });
+    // Xử lý nút gửi yêu cầu mượn sách
+    document.addEventListener('DOMContentLoaded', function() {
+        const submitBtn = document.getElementById('submitBorrowRequest');
+        const confirmBtn = document.getElementById('confirmSubmitBtn');
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                // Hiển thị modal xác nhận
+                $('#confirmBorrowModal').modal('show');
+            });
+        }
+
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function() {
+                submitBorrowRequest();
+            });
+        }
+    });
+
+    function submitBorrowRequest() {
+        // Disable button để tránh click nhiều lần
+        const submitBtn = document.getElementById('submitBorrowRequest');
+        const confirmBtn = document.getElementById('confirmSubmitBtn');
+
+        submitBtn.disabled = true;
+        confirmBtn.disabled = true;
+
+        // Hiển thị loading
+        confirmBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang gửi...';
+
+        fetch('/api/submit-borrow-request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             }
+        })
+        .then(response => response.json())
+        .then(data => {
+            $('#confirmBorrowModal').modal('hide');
+
+            if (data.code === 200) {
+                // Thành công
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công!',
+                    text: data.message,
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    // Redirect về trang chủ hoặc trang yêu cầu mượn
+                    window.location.href = '/my-borrow-batches';
+                });
+            } else {
+                // Lỗi
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Có lỗi xảy ra!',
+                    text: data.message,
+                    confirmButtonText: 'OK'
+                });
+
+                // Enable lại button
+                submitBtn.disabled = false;
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i class="fa fa-check"></i> Xác nhận gửi';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            $('#confirmBorrowModal').modal('hide');
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi kết nối!',
+                text: 'Không thể gửi yêu cầu. Vui lòng thử lại sau.',
+                confirmButtonText: 'OK'
+            });
+
+            // Enable lại button
+            submitBtn.disabled = false;
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fa fa-check"></i> Xác nhận gửi';
+        });
+    }
+
+    // Hàm cập nhật số lượng (override hàm cũ)
+    function updateQuantity(bookId, change) {
+        fetch('/api/update-cart', {
+            method: 'POST',
+            body: JSON.stringify({ 'id': bookId, 'change': change }),
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.code === 200) {
+                document.querySelector(`#quantity-${bookId}`).value = data.updated_quantity;
+
+                // Cập nhật counter trong header nếu có
+                const cartCounter = document.getElementById('cartCounter');
+                if (cartCounter) {
+                    cartCounter.innerText = data.cart_total_quantity;
+                }
+
+                // Reload trang nếu cart trống
+                if (data.cart_total_quantity === 0) {
+                    location.reload();
+                }
+            } else {
+                alert(data.message || 'Có lỗi xảy ra!');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert('Có lỗi xảy ra! Vui lòng thử lại.');
         });
     }
 </script>

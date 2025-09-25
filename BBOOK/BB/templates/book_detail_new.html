@@ -10,7 +10,7 @@
         <div class="col-md-5">
             <div class="book-image-container">
                 <img src="{{ url_for('static', filename=(book.image if book.image else 'img/default_book.png')) }}"
-                     alt="{{ book.title }}" 
+                     alt="{{ book.title }}"
                      class="img-fluid rounded shadow-lg book-main-image">
             </div>
         </div>
@@ -19,18 +19,20 @@
         <div class="col-md-7">
             <div class="book-info">
                 <h1 class="book-title mb-3">{{ book.title }}</h1>
-                
+
                 <!-- Thông tin cơ bản -->
                 <div class="book-details mb-4">
                     <p class="mb-2"><strong>Tác giả:</strong> {{ book.author.name if book.author else 'Chưa có' }}</p>
-                    <p class="mb-2"><strong>Tình trạng sách:</strong> 
+                    <p class="mb-2"><strong>Tình trạng sách:</strong>
                         <span class="badge {% if book.availableCopies > 0 %}badge-success{% else %}badge-danger{% endif %}">
                             {{ book_status }}
                         </span>
                     </p>
                     <p class="mb-2"><strong>Số lượng sách còn:</strong> {{ book.availableCopies }}</p>
-                    <p class="mb-2"><strong>Nhà xuất bản:</strong> {{ book.publisher.name if book.publisher else 'Chưa có' }}</p>
-                    <p class="mb-2"><strong>Thể loại:</strong> {{ book.category.categoryName if book.category else 'Chưa có' }}</p>
+                    <p class="mb-2"><strong>Nhà xuất bản:</strong> {{ book.publisher.name if book.publisher else 'Chưa
+                        có' }}</p>
+                    <p class="mb-2"><strong>Thể loại:</strong> {{ book.category.categoryName if book.category else 'Chưa
+                        có' }}</p>
                     <p class="mb-2"><strong>Năm XB:</strong> {{ book.publicationYear }}</p>
                     {% if book.pages %}
                     <p class="mb-2"><strong>Số trang:</strong> {{ book.pages }}</p>
@@ -38,31 +40,13 @@
                 </div>
 
                 <!-- Nút hành động -->
-                <div class="action-buttons mb-4">
-                    {% if book.availableCopies > 0 %}
-                        <button class="btn btn-primary btn-lg mr-3 add-to-cart"
-                                data-id="{{ book.id }}"
-                                data-title="{{ book.title }}"
-                                data-author="{{ book.author.name if book.author else 'Chưa rõ' }}"
-                                data-stock="{{ book.availableCopies }}">
-                            <i class="fa fa-book"></i> Mượn ngay
-                        </button>
-                        <button class="btn btn-outline-primary btn-lg add-to-cart-only"
-                                data-id="{{ book.id }}"
-                                data-title="{{ book.title }}"
-                                data-author="{{ book.author.name if book.author else 'Chưa rõ' }}"
-                                data-stock="{{ book.availableCopies }}">
-                            <i class="fa fa-cart-plus"></i>
-                        </button>
-                    {% else %}
-                        <button class="btn btn-secondary btn-lg" disabled>
-                            <i class="fa fa-times"></i> Hết sách
-                        </button>
-                    {% endif %}
-                    
-                    <button class="btn btn-outline-secondary btn-lg ml-2">
-                        <i class="fa fa-heart"></i>
-                    </button>
+                <div class="action-buttons mb-4" id="action-buttons">
+                    <!-- Sẽ được load bởi JavaScript -->
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="sr-only">Đang kiểm tra...</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Đánh giá -->
@@ -72,18 +56,18 @@
                         <span class="rating-score">{{ "%.1f"|format(rating_data.average) }}</span>
                         <div class="stars">
                             {% for i in range(1, 6) %}
-                                {% if i <= rating_data.average %}
-                                    <i class="fa fa-star text-warning"></i>
-                                {% elif i - 0.5 <= rating_data.average %}
-                                    <i class="fa fa-star-half-o text-warning"></i>
-                                {% else %}
-                                    <i class="fa fa-star-o text-muted"></i>
-                                {% endif %}
+                            {% if i <= rating_data.average %}
+                            <i class="fa fa-star text-warning"></i>
+                            {% elif i - 0.5 <= rating_data.average %}
+                            <i class="fa fa-star-half-o text-warning"></i>
+                            {% else %}
+                            <i class="fa fa-star-o text-muted"></i>
+                            {% endif %}
                             {% endfor %}
                         </div>
                         <span class="rating-count">({{ rating_data.total }} đánh giá)</span>
                     </div>
-                    
+
                     {% if current_user.is_authenticated %}
                     <button class="btn btn-sm btn-outline-primary mt-2" id="rateBookBtn">
                         Đánh giá sách
@@ -124,11 +108,13 @@
                                          class="card-img-top book-thumbnail" alt="{{ related_book.title }}">
                                 </div>
                                 <div class="card-body d-flex flex-column">
-                                    <h6 class="card-title">{{ related_book.title[:50] }}{% if related_book.title|length > 50 %}...{% endif %}</h6>
-                                    <p class="card-text text-muted small">{{ related_book.author.name if related_book.author else 'Chưa có tác giả' }}</p>
+                                    <h6 class="card-title">{{ related_book.title[:50] }}{% if related_book.title|length
+                                        > 50 %}...{% endif %}</h6>
+                                    <p class="card-text text-muted small">{{ related_book.author.name if
+                                        related_book.author else 'Chưa có tác giả' }}</p>
                                     <p class="card-text text-muted small">{{ related_book.publicationYear }}</p>
                                     <div class="mt-auto">
-                                        <a href="{{ url_for('book_detail', book_id=related_book.id) }}" 
+                                        <a href="{{ url_for('book_detail', book_id=related_book.id) }}"
                                            class="btn btn-sm btn-outline-primary">Xem chi tiết</a>
                                     </div>
                                 </div>
@@ -181,16 +167,30 @@
 {% endif %}
 
 
+{% block scripts %}
 <script>
+// Biến toàn cục an toàn với Jinja2
+var BOOK_ID = {{ book.id }};
+var BOOK_TITLE = {{ book.title|tojson }};
+var BOOK_AUTHOR = {{ (book.author.name if book.author else 'Chưa rõ')|tojson }};
+
 $(document).ready(function() {
-    // Xử lý thêm vào giỏ hàng
-    $('.add-to-cart').click(function(e) {
+    console.log('Book detail script loaded for book ID:', BOOK_ID);
+    console.log('Book title:', BOOK_TITLE);
+
+    // Load eligibility khi trang sẵn sàng
+    checkBorrowEligibility();
+
+    // Xử lý thêm vào giỏ hàng - SỬ DỤNG EVENT DELEGATION
+    $(document).on('click', '.add-to-cart, .add-to-cart-only', function(e) {
         e.preventDefault();
-        var bookId = $(this).data('id');
-        var bookTitle = $(this).data('title');
-        var bookAuthor = $(this).data('author');
-        var stock = $(this).data('stock');
-        
+
+        var bookId = $(this).data('id') || BOOK_ID;
+        var bookTitle = $(this).data('title') || BOOK_TITLE;
+        var bookAuthor = $(this).data('author') || BOOK_AUTHOR;
+
+        console.log('Adding book to cart:', bookId, bookTitle);
+
         $.ajax({
             url: '/api/add-cart',
             method: 'POST',
@@ -200,67 +200,332 @@ $(document).ready(function() {
             }),
             success: function(data) {
                 if (data.code === 200) {
-                    alert('Đã thêm "' + bookTitle + '" vào giỏ hàng!');
-                    // Cập nhật số lượng giỏ hàng trên header
-                    $('.cart-count').text(data.data.total_quantity);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Thành công!',
+                        text: 'Đã thêm "' + bookTitle + '" vào giỏ!',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Cập nhật counter giỏ hàng
+                    if (data.data && data.data.total_quantity) {
+                        $('.cart-count').text(data.data.total_quantity);
+                        $('#cartCounter').text(data.data.total_quantity);
+                    }
                 } else {
-                    alert(data.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi!',
+                        text: data.message || 'Không thể thêm vào giỏ'
+                    });
                 }
             },
-            error: function() {
-                alert('Có lỗi xảy ra. Vui lòng thử lại!');
+            error: function(xhr, status, error) {
+                console.error('Add to cart error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối!',
+                    text: 'Có lỗi xảy ra. Vui lòng thử lại!'
+                });
             }
         });
     });
-    
+
     // Xử lý đánh giá sách
-    $('#rateBookBtn').click(function() {
+    $(document).on('click', '#rateBookBtn', function() {
         $('#ratingModal').modal('show');
     });
-    
+
     // Xử lý click sao đánh giá
-    $('.rating-star').click(function() {
+    $(document).on('click', '.rating-star', function() {
         var rating = $(this).data('rating');
         $('#ratingValue').val(rating);
-        
+
         $('.rating-star').removeClass('active fa-star').addClass('fa-star-o');
         for (var i = 1; i <= rating; i++) {
             $('.rating-star[data-rating="' + i + '"]').removeClass('fa-star-o').addClass('fa-star active');
         }
     });
-    
+
     // Gửi đánh giá
-    $('#submitRating').click(function() {
+    $(document).on('click', '#submitRating', function() {
         var rating = $('#ratingValue').val();
         var comment = $('#comment').val();
-        
+
         if (rating == 0) {
-            alert('Vui lòng chọn số sao đánh giá!');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Thiếu thông tin!',
+                text: 'Vui lòng chọn số sao đánh giá!'
+            });
             return;
         }
-        
+
         $.ajax({
             url: '/api/rate-book',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                'book_id': {{ book.id }},
+                'book_id': BOOK_ID,
                 'rating': rating,
                 'comment': comment
             }),
             success: function(data) {
                 if (data.code === 200) {
-                    alert('Cảm ơn bạn đã đánh giá!');
-                    $('#ratingModal').modal('hide');
-                    location.reload(); // Reload để cập nhật đánh giá
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Cảm ơn bạn!',
+                        text: 'Đánh giá đã được gửi thành công!',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        $('#ratingModal').modal('hide');
+                        location.reload();
+                    });
                 } else {
-                    alert(data.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Lỗi!',
+                        text: data.message || 'Không thể gửi đánh giá'
+                    });
                 }
             },
             error: function() {
-                alert('Có lỗi xảy ra. Vui lòng thử lại!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi kết nối!',
+                    text: 'Có lỗi xảy ra. Vui lòng thử lại!'
+                });
             }
         });
+    });
+});
+
+// Hàm kiểm tra điều kiện mượn sách
+function checkBorrowEligibility() {
+    console.log('Checking borrow eligibility for book:', BOOK_ID);
+
+    // Hiển thị loading
+    $('#action-buttons').html(
+        '<div class="text-center">' +
+            '<div class="spinner-border text-primary" role="status">' +
+                '<span class="sr-only">Đang kiểm tra...</span>' +
+            '</div>' +
+            '<p class="mt-2 text-muted">Đang kiểm tra điều kiện mượn sách...</p>' +
+        '</div>'
+    );
+
+    $.ajax({
+        url: '/api/check-borrow-eligibility/' + BOOK_ID,
+        method: 'GET',
+        timeout: 15000,
+        success: function(data) {
+            console.log('Eligibility response:', data);
+            renderActionButtons(data);
+        },
+        error: function(xhr, status, error) {
+            console.error('Eligibility check error:', status, error);
+
+            $('#action-buttons').html(
+                '<div class="alert alert-warning">' +
+                    '<i class="fa fa-exclamation-triangle"></i> ' +
+                    '<strong>Không thể kiểm tra trạng thái!</strong><br>' +
+                    '<small>Lỗi: ' + status + ' - ' + error + '</small><br>' +
+                    '<button class="btn btn-sm btn-outline-primary mt-2" onclick="checkBorrowEligibility()">' +
+                        '<i class="fa fa-refresh"></i> Thử lại' +
+                    '</button>' +
+                '</div>'
+            );
+        }
+    });
+}
+
+// Hàm render nút hành động
+function renderActionButtons(data) {
+    var buttonsHtml = '';
+
+    if (data.eligible) {
+        // Hiển thị nút "Mượn sách"
+        buttonsHtml =
+            '<div class="action-group">' +
+<!--                '<a href="/borrow-request/' + BOOK_ID + '" class="btn btn-primary btn-lg">' +-->
+<!--                    '<i class="fa fa-book"></i> Mượn sách' +-->
+<!--                '</a>' +-->
+                '<button class="btn btn-outline-primary btn-lg add-to-cart-only ml-2" ' +
+                        'data-id="' + BOOK_ID + '" ' +
+                        'data-title="' + BOOK_TITLE + '" ' +
+                        'data-author="' + BOOK_AUTHOR + '">' +
+                    '<i class="fa fa-plus"></i> Thêm vào giỏ' +
+                '</button>' +
+            '</div>' +
+            '<div class="mt-2">' +
+                '<small class="text-success">' +
+                    '<i class="fa fa-check-circle"></i> ' +
+                    'Bạn có thể mượn sách này' +
+                '</small>' +
+            '</div>';
+    } else if (data.book_status && data.book_status.can_wait) {
+        // Hiển thị nút "Đặt chờ"
+        buttonsHtml =
+            '<div class="action-group">' +
+                '<button class="btn btn-warning btn-lg add-to-waitlist" data-id="' + BOOK_ID + '">' +
+                    '<i class="fa fa-clock-o"></i> Đặt chờ' +
+                '</button>' +
+            '</div>' +
+            '<div class="alert alert-info mt-3">' +
+                '<i class="fa fa-info-circle"></i> ' +
+                '<strong>Sách hiện tại đã hết.</strong><br>' +
+                'Bạn có thể đăng ký vào danh sách chờ để được ưu tiên khi có sách trả lại.' +
+            '</div>';
+    } else {
+        // Hiển thị thông báo lỗi
+        var message = 'Không thể mượn sách';
+        if (data.member_status && data.member_status.message) {
+            message = data.member_status.message;
+        }
+
+        buttonsHtml =
+            '<div class="alert alert-danger">' +
+                '<i class="fa fa-lock"></i> ' +
+                '<strong>Không thể mượn sách</strong><br>' +
+                message +
+            '</div>';
+    }
+
+    $('#action-buttons').html(buttonsHtml);
+}
+
+// Xử lý đặt chờ
+$(document).on('click', '.add-to-waitlist', function() {
+    var bookId = $(this).data('id') || BOOK_ID;
+    var $button = $(this);
+
+    console.log('Adding to waiting list:', bookId);
+
+    // Disable button tạm thời
+    $button.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Đang xử lý...');
+
+    $.ajax({
+        url: '/api/add-to-waiting-list',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            book_id: parseInt(bookId)
+        }),
+        success: function(data) {
+            console.log('Waiting list response:', data);
+
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Thành công!',
+                    text: 'Đã thêm vào danh sách chờ.' + (data.position ? ' Vị trí của bạn: ' + data.position : ''),
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    // Refresh lại trạng thái
+                    checkBorrowEligibility();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi!',
+                    text: data.message || 'Không thể thêm vào danh sách chờ'
+                });
+                // Re-enable button
+                $button.prop('disabled', false).html('<i class="fa fa-clock-o"></i> Đặt chờ');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Waiting list error:', error);
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi kết nối!',
+                text: 'Có lỗi xảy ra. Vui lòng thử lại!'
+            });
+
+            // Re-enable button
+            $button.prop('disabled', false).html('<i class="fa fa-clock-o"></i> Đặt chờ');
+        }
+    });
+});
+</script>
+{% endblock %}
+
+
+<!-- JavaScript kiểm tra điều kiện -->
+<script>
+$(document).ready(function() {
+    checkBorrowEligibility();
+});
+
+function checkBorrowEligibility() {
+    $.get('/api/check-borrow-eligibility/{{ book.id }}', function(data) {
+        let buttonsHtml = '';
+
+        if (data.eligible) {
+            // B2: Hiển thị nút "Mượn sách"
+            buttonsHtml = `
+                <button class="btn btn-primary btn-lg add-to-cart-only"
+                        data-id="{{ book.id }}"
+                        data-title="{{ book.title }}"
+                        data-author="{{ book.author.name if book.author else 'Chưa rõ' }}">
+                    <i class="fa fa-plus"></i> Thêm vào giỏ mượn
+                </button>
+                <a href="{{ url_for('cart') }}" class="btn btn-outline-primary btn-lg">
+                    <i class="fa fa-shopping-cart"></i> Xem giỏ
+                </a>
+            `;
+        } else if (data.book_status.can_wait) {
+            // Luồng thay thế: Hiển thị nút "Đặt chờ"
+            buttonsHtml = `
+                <button class="btn btn-warning btn-lg add-to-waitlist"
+                        data-id="{{ book.id }}">
+                    <i class="fa fa-clock-o"></i> Đặt chờ
+                </button>
+                <p class="text-muted mt-2">Sách hiện tại đã hết. Bạn có thể đăng ký vào danh sách chờ.</p>
+            `;
+        } else {
+            // Luồng ngoại lệ: Tài khoản bị khóa
+            buttonsHtml = `
+                <div class="alert alert-danger">
+                    <i class="fa fa-lock"></i> ${data.member_status.message}
+                </div>
+            `;
+        }
+
+        $('#action-buttons').html(buttonsHtml);
+    }).fail(function() {
+        $('#action-buttons').html(`
+            <div class="alert alert-warning">
+                Không thể kiểm tra trạng thái mượn sách. Vui lòng thử lại.
+            </div>
+        `);
+    });
+}
+
+// Xử lý thêm vào giỏ
+$(document).on('click', '.add-to-cart-only', function() {
+    const bookId = $(this).data('id');
+    const title = $(this).data('title');
+    const author = $(this).data('author');
+    
+    addToCart(bookId, title, 1, author);
+});
+
+// Xử lý đặt chờ
+$(document).on('click', '.add-to-waitlist', function() {
+    const bookId = $(this).data('id');
+
+    $.post('/api/add-to-waiting-list', {
+        book_id: bookId
+    }, function(data) {
+        if (data.success) {
+            alert(`Đã thêm vào danh sách chờ. Vị trí của bạn: ${data.position}`);
+            location.reload();
+        } else {
+            alert(data.message);
+        }
     });
 });
 </script>
