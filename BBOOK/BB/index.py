@@ -1,6 +1,7 @@
+from datetime import date
 from math import ceil
 import cloudinary
-from flask import Flask, render_template, request, url_for, redirect, flash, session, jsonify
+from flask import Flask, render_template, request, url_for, redirect, flash, session, jsonify, Blueprint
 from flask_dance.consumer import oauth_authorized
 from flask_dance.contrib.google import google
 from flask_login import login_user, logout_user, login_required, current_user, LoginManager
@@ -22,7 +23,7 @@ def index():
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'user_signin'
-
+bp = Blueprint('api', __name__)
 
 @app.route('/contact')
 def contact():
@@ -437,6 +438,40 @@ def common_context():
     }
 
 
+
+
+@bp.route('/api/search_books', methods=['GET'])
+def search_books():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({'books': []})
+
+    # Tìm sách theo ID hoặc tên chứa query
+    books = Book.query.filter(
+        (Book.id.like(f"%{query}%")) | (Book.title.ilike(f"%{query}%"))
+    ).all()
+
+    books_data = []
+    for book in books:
+        books_data.append({
+            'id': book.id,
+            'title': book.title,
+            'is_existing': True  # sách đã có trong DB
+        })
+
+    # Nếu chưa có sách nào khớp (có thể là sách mới)
+    if not books_data:
+        # trả về một đối tượng sách tạm để JS hiển thị là sách mới
+        books_data.append({
+            'id': query,
+            'title': '',
+            'is_existing': False
+        })
+
+    return jsonify({'books': books_data})
+
+
+
 @app.route('/book/<int:book_id>')
 def book_detail(book_id):
     """Trang chi tiết sách - Không cần kiểm tra Member"""
@@ -652,7 +687,6 @@ def add_to_waiting_list_api():
 @app.route('/api/cancel-batch', methods=['POST'])
 @login_required
 def cancel_batch():
-    """API hủy toàn bộ batch yêu cầu mượn sách"""
     try:
         data = request.get_json()
         if not data:
@@ -716,6 +750,314 @@ def cancel_batch():
             'code': 500,
             'message': f'Lỗi server: {str(e)}'
         }), 500
+
+
+@app.route('/admin/api/validate-book-data', methods=['POST'])
+@login_required
+def validate_book_data():
+    """API validate dữ liệu sách trước khi submit"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+        return jsonify({'success': False, 'message': 'Không có quyền'}), 403
+
+    try:
+        data = request.json
+        errors = []
+        warnings = []
+
+        # Kiểm tra tên sách trùng lặp
+        title = data.get('title', '').strip()
+        if title:
+            existing_book = Book.query.filter(Book.title.ilike(title)).first()
+            if existing_book:
+                warnings.append(f'Đã có sách với tên "{title}" (ID: {existing_book.id})')
+
+        # Kiểm tra thông tin bắt buộc cho sách mới
+        if data.get('is_new_book'):
+            required_fields = ['title', 'author_id', 'category_id', 'publisher_id', 'publication_year']
+            for field in required_fields:
+                if not data.get(field):
+                    errors.append(f'Thiếu thông tin: {field}')
+
+            # Kiểm tra năm xuất bản hợp lệ
+            year = data.get('publication_year')
+            if year:
+                current_year = datetime.now().year
+                if year < 1800 or year > current_year + 1:
+                    errors.append(f'Năm xuất bản không hợp lệ: {year}')
+
+        # Kiểm tra số lượng
+        quantity = data.get('quantity')
+        if not quantity or quantity <= 0:
+            errors.append('Số lượng phải lớn hơn 0')
+        elif quantity > 10000:
+            warnings.append('Số lượng rất lớn, vui lòng kiểm tra lại')
+
+        return jsonify({
+            'success': len(errors) == 0,
+            'errors': errors,
+            'warnings': warnings
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Lỗi server: {str(e)}'}), 500
+
+
+@app.route('/admin/api/get-book-suggestions')
+@login_required
+def get_book_suggestions():
+    """API gợi ý sách dựa trên input của user"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+        return jsonify({'suggestions': []}), 403
+
+    try:
+        query = request.args.get('q', '').strip()
+        suggestion_type = request.args.get('type', 'title')  # 'title', 'author', 'publisher'
+
+        suggestions = []
+
+        if len(query) >= 2:
+            if suggestion_type == 'title':
+                # Gợi ý tên sách
+                books = Book.query.filter(Book.title.ilike(f'%{query}%')).limit(5).all()
+                suggestions = [{'value': book.title, 'id': book.id} for book in books]
+
+            elif suggestion_type == 'author':
+                # Gợi ý tác giả
+                authors = Author.query.filter(Author.name.ilike(f'%{query}%')).limit(5).all()
+                suggestions = [{'value': author.name, 'id': author.id} for author in authors]
+
+            elif suggestion_type == 'publisher':
+                # Gợi ý nhà xuất bản
+                publishers = Publisher.query.filter(Publisher.name.ilike(f'%{query}%')).limit(5).all()
+                suggestions = [{'value': pub.name, 'id': pub.id} for pub in publishers]
+
+        return jsonify({'suggestions': suggestions})
+
+    except Exception as e:
+        return jsonify({'suggestions': [], 'error': str(e)})
+
+
+@app.route('/admin/api/create-new-entity', methods=['POST'])
+@login_required
+def create_new_entity():
+    """API tạo nhanh Author, Publisher, Category mới"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.LIBRARIAN]:
+        return jsonify({'success': False, 'message': 'Không có quyền'}), 403
+
+    try:
+        data = request.json
+        entity_type = data.get('type')  # 'author', 'publisher', 'category'
+        name = data.get('name', '').strip()
+
+        if not name:
+            return jsonify({'success': False, 'message': 'Tên không được để trống'})
+
+        if entity_type == 'author':
+            # Kiểm tra trùng lặp
+            existing = Author.query.filter(Author.name.ilike(name)).first()
+            if existing:
+                return jsonify({'success': False, 'message': 'Tác giả đã tồn tại'})
+
+            new_entity = Author(name=name)
+
+        elif entity_type == 'publisher':
+            existing = Publisher.query.filter(Publisher.name.ilike(name)).first()
+            if existing:
+                return jsonify({'success': False, 'message': 'Nhà xuất bản đã tồn tại'})
+
+            new_entity = Publisher(name=name)
+
+        elif entity_type == 'category':
+            existing = BookCategory.query.filter(BookCategory.categoryName.ilike(name)).first()
+            if existing:
+                return jsonify({'success': False, 'message': 'Danh mục đã tồn tại'})
+
+            description = data.get('description', '')
+            new_entity = BookCategory(categoryName=name, description=description)
+
+        else:
+            return jsonify({'success': False, 'message': 'Loại entity không hợp lệ'})
+
+        db.session.add(new_entity)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Đã tạo {entity_type} mới thành công',
+            'entity': {
+                'id': new_entity.id,
+                'name': name
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Lỗi: {str(e)}'})
+
+
+@app.route('/admin/api/import-statistics')
+@login_required
+def import_statistics():
+    from datetime import datetime
+
+    # Lấy tham số lọc từ request
+    year = request.args.get("year", type=int)
+    month = request.args.get("month", type=int)
+
+    # Câu query gốc: tổng số lượng nhập theo sách
+    query = db.session.query(
+        Book.title,
+        func.sum(ImportRecord.quantity).label("total_quantity")
+    ).join(Book, ImportRecord.book_id == Book.id)
+
+    # Nếu có lọc theo năm
+    if year:
+        query = query.filter(func.extract("year", ImportRecord.importDate) == year)
+
+    # Nếu có lọc theo tháng
+    if month:
+        query = query.filter(func.extract("month", ImportRecord.importDate) == month)
+
+    # Nhóm theo sách + sắp xếp giảm dần
+    results = (
+        query.group_by(Book.id, Book.title)
+        .order_by(func.sum(ImportRecord.quantity).desc())
+        .limit(5)  # Lấy top 5 sách nhập nhiều nhất
+        .all()
+    )
+
+    # Convert dữ liệu sang JSON
+    data = [{"book": r.title, "total_quantity": int(r.total_quantity)} for r in results]
+
+    return jsonify(data)
+
+
+# Thêm các import cần thiết ở đầu file index.py
+from datetime import date, datetime
+from flask import jsonify, request
+from BBOOK.BB.models import Book, Author, BookCategory, Publisher, Library, Librarian, ImportRecord
+from BBOOK.BB import db
+
+
+# Thêm đoạn code này vào cuối file index.py
+
+# =================== API FOR IMPORT RECORDS ===================
+
+@app.route('/api/check_book/<int:book_id>', methods=['GET'])
+def check_book(book_id):
+    """
+    API để kiểm tra sách đã tồn tại hay chưa.
+    Trả về thông tin sách nếu tồn tại, ngược lại lỗi 404.
+    """
+    book = Book.query.get(book_id)
+    if book:
+        return jsonify({
+            'id': book.id,
+            'title': book.title,
+            'author': book.author.name if book.author else 'N/A',
+            'category': book.category.categoryName if book.category else 'N/A',
+            'publisher': book.publisher.name if book.publisher else 'N/A',
+            'publication_year': book.publicationYear,
+            'available_copies': book.availableCopies
+        })
+    return jsonify({'message': 'Book not found'}), 404
+
+
+@app.route('/api/select_data', methods=['GET'])
+def get_select_data():
+    """
+    API cung cấp dữ liệu cho các trường <select> (dropdown).
+    """
+    authors = [{'id': a.id, 'text': a.name} for a in Author.query.all()]
+    categories = [{'id': c.id, 'text': c.categoryName} for c in BookCategory.query.all()]
+    publishers = [{'id': p.id, 'text': p.name} for p in Publisher.query.all()]
+    libraries = [{'id': l.id, 'text': l.address} for l in Library.query.all()]
+    librarians = [{'id': li.id, 'text': li.user.fullName} for li in Librarian.query.join(Librarian.user).all()]
+
+    return jsonify({
+        'authors': authors,
+        'categories': categories,
+        'publishers': publishers,
+        'libraries': libraries,
+        'librarians': librarians
+    })
+
+
+@app.route('/api/import_records', methods=['POST'])
+def create_import_record():
+    """
+    API để xử lý việc tạo phiếu nhập sách.
+    """
+    data = request.json
+    book_id = data.get('book_id')
+    quantity = int(data.get('quantity', 0))
+
+    try:
+        # --- Trường hợp sách đã tồn tại ---
+        if book_id:
+            book = Book.query.get(book_id)
+            if not book:
+                return jsonify({'success': False, 'message': 'Sách không tồn tại!'}), 404
+
+            # Cập nhật số lượng
+            book.availableCopies += quantity
+
+        # --- Trường hợp sách mới ---
+        else:
+            # Xử lý tác giả, danh mục, nhà xuất bản (có thể là mới hoặc cũ)
+            author_name = data.get('author')
+            category_name = data.get('category')
+            publisher_name = data.get('publisher')
+
+            # Hàm hỗ trợ để lấy hoặc tạo mới
+            def get_or_create(model, name_field, name_value):
+                instance = model.query.filter(getattr(model, name_field) == name_value).first()
+                if not instance:
+                    instance = model(**{name_field: name_value})
+                    db.session.add(instance)
+                    db.session.flush()  # Để lấy ID ngay lập tức
+                return instance.id
+
+            author_id = get_or_create(Author, 'name', author_name)
+            category_id = get_or_create(BookCategory, 'categoryName', category_name)
+            publisher_id = get_or_create(Publisher, 'name', publisher_name)
+
+            book = Book(
+                title=data.get('title'),
+                author_id=author_id,
+                category_id=category_id,
+                publisher_id=publisher_id,
+                publicationYear=int(data.get('publication_year')),
+                availableCopies=quantity,
+                # =========================================================
+                # SỬA LỖI Ở ĐÂY: Thêm library_id khi tạo sách mới
+                library_id=int(data.get('library_id'))
+                # =========================================================
+            )
+            db.session.add(book)
+            db.session.flush()  # Để lấy book.id
+
+        # --- Tạo phiếu nhập trong mọi trường hợp ---
+        record = ImportRecord(
+            book_id=book.id,
+            bookTitle=book.title,  # Lưu lại tiêu đề để tiện truy vấn
+            quantity=quantity,
+            importDate=datetime.strptime(data.get('import_date'), '%Y-%m-%d').date(),
+            library_id=int(data.get('library_id')),
+            librarian_id=int(data.get('librarian_id')),
+            description=data.get('description')
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Tạo phiếu nhập thành công!'})
+
+    except Exception as e:
+        db.session.rollback()
+        # In ra lỗi chi tiết hơn để gỡ rối
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 if __name__ == '__main__':
     from BBOOK.BB.admin import *
